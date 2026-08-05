@@ -1,0 +1,51 @@
+import { useAuthStore } from '../stores/authStore';
+
+const API = '/api';
+
+class ApiError extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+  }
+}
+
+export async function apiFetch<T>(
+  path: string,
+  options: RequestInit = {}
+): Promise<T> {
+  const { getState } = useAuthStore;
+  const accessToken = getState().accessToken;
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(options.headers as Record<string, string>),
+  };
+  if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+
+  const res = await fetch(`${API}${path}`, { ...options, headers, credentials: 'include' });
+
+  if (res.status === 401) {
+    // Try silent refresh once, then retry.
+    const ok = await getState().refresh();
+    if (ok) return apiFetch<T>(path, options);
+    getState().logout();
+    throw new ApiError(401, 'Unauthorized');
+  }
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => null);
+    throw new ApiError(res.status, data?.message ?? `Request failed (${res.status})`);
+  }
+
+  return res.json() as Promise<T>;
+}
+
+export const http = {
+  get: <T>(path: string) => apiFetch<T>(path),
+  post: <T>(path: string, body?: unknown) =>
+    apiFetch<T>(path, { method: 'POST', body: body ? JSON.stringify(body) : undefined }),
+  patch: <T>(path: string, body: unknown) =>
+    apiFetch<T>(path, { method: 'PATCH', body: JSON.stringify(body) }),
+  del: <T>(path: string) => apiFetch<T>(path, { method: 'DELETE' }),
+};
