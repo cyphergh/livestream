@@ -1,0 +1,46 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: livestream-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: livestream
+      POSTGRES_PASSWORD: livestream
+      POSTGRES_DB: livestream
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  mediamtx:
+    image: bluenviron/mediamtx:latest
+    container_name: livestream-mediamtx
+    restart: unless-stopped
+    ports:
+      - "1935:1935"    # RTMP
+      - "8554:8554"    # RTSP
+      - "8890:8890/udp" # SRT
+      - "8888:8888"    # HLS
+      - "8889:8889"    # WebRTC (WHEP/WHIP)
+      - "9997:9997"    # API
+      - "8189:8189/udp" # RTP/AV1/WebRTC extra
+    environment:
+      MTX_API: "yes"
+      MTX_APIADDRESS: ":9997"
+      MTX_APIAUTHENTICATION: "yes"
+      MTX_APIPUBLICADDRESS: "http://localhost:9997"
+      MTX_RTMPADDRESS: ":1935"
+      MTX_RTSPADDRESS: ":8554"
+      MTX_SRTADDRESS: ":8890"
+      MTX_HLSADDRESS: ":8888"
+      MTX_WEBRTCADDRESS: ":8889"
+      # Share via secrets/keys below
+      MTX_AUTHMETHOD: "external"
+      MTX_EXTERNALAUTHURL: "http://host.docker.internal:3000/api/media/auth"
+    volumes:
+      - ./mediamtx/mediamtx.yml:/mediamtx.yml
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  pgdata:

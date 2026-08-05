@@ -1,0 +1,28 @@
+# MediaMTX configuration for LiveStream.
+# Minimal config — everything else uses defaults. See https://github.com/bluenviron/mediamtx
+
+logLevel: info
+
+api: yes
+apiAddress: :9997
+apiAuthentication: yes
+# API key checked by clients (our backend). Generate a strong one.
+apiKey: change-me-mediamtx-key
+
+rtmp: yes
+rtmpAddress: :1935
+rtsp: yes
+rtspAddress: :8554
+srt: yes
+srtAddress: :8890
+hls: yes
+hlsAddress: :8888
+webrtc: yes
+webrtcAddress: :8889
+
+# Authorize publishers/readers through our Bun backend (external auth).
+authMethod: external
+externalAuthenticationURL: http://host.docker.internal:3000/api/media/auth
+
+# Paths are dynamic (created by the backend via the API / on first publish).
+# By default any path can be published once external auth allows it.
