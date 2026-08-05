@@ -1,0 +1,155 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  PRODUCER
+  USER
+}
+
+enum ChannelType {
+  RADIO
+  TV
+}
+
+enum Visibility {
+  PUBLIC
+  PRIVATE
+}
+
+model User {
+  id         String   @id @default(cuid())
+  email      String   @unique
+  name       String
+  password   String
+  role       Role     @default(USER)
+  avatarUrl  String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  channels      Channel[]       @relation("ChannelOwner")
+  refreshTokens RefreshToken[]
+  chatMessages  ChatMessage[]
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  revoked   Boolean  @default(false)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Channel {
+  id          String      @id @default(cuid())
+  slug        String      @unique
+  name        String
+  description String?
+  type        ChannelType @default(TV)
+  visibility  Visibility  @default(PUBLIC)
+  logoUrl     String?
+  coverUrl    String?
+  ownerId     String
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  owner         User           @relation("ChannelOwner", fields: [ownerId], references: [id])
+  sessions      Session[]      @relation("ChannelSessions")
+  programs      Program[]
+  ingestKeys    IngestKey[]
+  restreams     RestreamTarget[]
+  pullSources   PullSource[]
+  chatMessages  ChatMessage[]
+
+  @@index([ownerId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  channelId    String
+  startedAt    DateTime @default(now())
+  endedAt      DateTime?
+  title        String?
+  isLive       Boolean  @default(true)
+  scheduled    Boolean  @default(false)
+  scheduledFor DateTime?
+
+  channel Channel @relation("ChannelSessions", fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@index([channelId])
+}
+
+model Program {
+  id         String   @id @default(cuid())
+  channelId  String
+  title      String
+  description String?
+  startsAt   DateTime
+  endsAt     DateTime
+  genre      String?
+  createdAt  DateTime @default(now())
+
+  channel Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@index([channelId, startsAt, endsAt])
+}
+
+model IngestKey {
+  id         String      @id @default(cuid())
+  channelId  String
+  name       String      @default("Primary")
+  protocol   String      @default("rtmp") // rtmp | rtsp | srt | whep
+  password   String
+  enabled    Boolean     @default(true)
+  createdAt  DateTime    @default(now())
+
+  channel Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@index([channelId])
+}
+
+model RestreamTarget {
+  id        String   @id @default(cuid())
+  channelId String
+  name      String
+  url       String
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  channel Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+}
+
+model PullSource {
+  id        String    @id @default(cuid())
+  channelId String
+  name      String
+  url       String
+  enabled   Boolean   @default(true)
+  createdAt DateTime  @default(now())
+
+  channel Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  channelId String
+  userId    String
+  body      String
+  createdAt DateTime @default(now())
+
+  channel Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([channelId, createdAt])
+}
