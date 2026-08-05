@@ -1,0 +1,26 @@
+# Local (non-Docker) MediaMTX config used by `bun run dev:media`.
+# Copy of the docker config with localhost external auth.
+
+logLevel: info
+
+api: yes
+apiAddress: :9997
+apiAuthentication: yes
+apiKey: change-me-mediamtx-key
+
+rtmp: yes
+rtmpAddress: :1935
+rtsp: yes
+rtspAddress: :8554
+srt: yes
+srtAddress: :8890
+hls: yes
+hlsAddress: :8888
+webrtc: yes
+webrtcAddress: :8889
+# Allow CORS for HLS/WebRTC requested from the Vite dev server.
+corsAllowOrigins:
+  - '*'
+
+authMethod: external
+externalAuthenticationURL: http://localhost:3000/api/media/auth

@@ -1,0 +1,18 @@
+{
+  "name": "livestream",
+  "private": true,
+  "workspaces": ["server", "client"],
+  "scripts": {
+    "dev": "concurrently -n api,web,media -c cyan,magenta,yellow \"bun --cwd server run dev\" \"bun --cwd client run dev\" \"bun run dev:media\"",
+    "dev:api": "bun --cwd server run dev",
+    "dev:web": "bun --cwd client run dev",
+    "dev:media": "mediamtx mediamtx/mediamtx.local.yml",
+    "db:migrate": "bun --cwd server run db:migrate",
+    "db:deploy": "bun --cwd server run db:deploy",
+    "db:seed": "bun --cwd server run seed",
+    "typecheck": "bun --cwd server run typecheck && bun --cwd client run typecheck"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  }
+}

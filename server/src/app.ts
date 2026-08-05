@@ -3,6 +3,9 @@ import { cors } from '@elysiajs/cors';
 import { config } from './config';
 import { auth } from './modules/auth/auth';
 import { publicChannels, adminChannels } from './modules/channels/channels';
+import { mediaAuth } from './modules/media/auth';
+import { whip } from './modules/media/whip';
+import { ingest } from './modules/ingest/ingest';
 
 export const app = new Elysia()
   .use(
@@ -13,8 +16,11 @@ export const app = new Elysia()
   )
   .get('/health', () => ({ status: 'ok', uptime: process.uptime() }))
   .use(auth)
+  .use(mediaAuth)
+  .use(whip)
   .use(publicChannels)
   .use(adminChannels)
+  .use(ingest)
   .onError(({ code, error, set }) => {
     const message = error instanceof Error ? error.message : String(error);
     if (code === 'NOT_FOUND') {

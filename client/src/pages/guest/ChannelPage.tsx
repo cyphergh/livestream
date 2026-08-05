@@ -2,24 +2,89 @@ import { useEffect, useRef, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import Hls from 'hls.js';
 import { http } from '../../lib/api';
+import { attachWhep } from '../../lib/whep';
 import type { Channel } from '../../types';
 
-function HlsPlayer({ src }: { src: string }) {
+function TvPlayer({ channel }: { channel: Channel }) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const [mode, setMode] = useState<'whep' | 'hls' | 'idle'>('idle');
+  const [status, setStatus] = useState('Connecting…');
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
+    let whepCleanup: { close: () => void } | null = null;
     const video = videoRef.current;
     if (!video) return;
+
+    if (channel.whep) {
+      attachWhep(video, channel.whep, (s) => {
+        setStatus(s);
+        if (s === 'connected') setMode('whep');
+      })
+        .then((cleanup) => {
+          whepCleanup = cleanup;
+          if (cancelled) cleanup.close();
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setError('Low-latency unavailable, switching to HLS…');
+            setMode('hls');
+          }
+        });
+    } else if (channel.hls) {
+      setMode('hls');
+    } else {
+      setStatus('Not streaming');
+    }
+
+    return () => {
+      cancelled = true;
+      whepCleanup?.close();
+    };
+  }, [channel]);
+
+  return (
+    <>
+      <video ref={videoRef} controls autoPlay muted playsInline className="h-full w-full" />
+      {mode === 'hls' && channel.hls && <HlsBackfill src={channel.hls} />}
+      {status && (
+        <div className="absolute right-2 top-2 rounded bg-black/60 px-2 py-0.5 text-xs text-white">
+          {mode === 'whep' ? 'LIVE (WebRTC)' : status}
+        </div>
+      )}
+      {error && <div className="absolute left-2 top-2 text-xs text-yellow-300">{error}</div>}
+      {!channel.live && <Overlay text="Not currently streaming" />}
+    </>
+  );
+}
+
+function HlsBackfill({ src }: { src: string }) {
+  const ref = useRef<HTMLVideoElement>(null);
+  useEffect(() => {
+    const video = ref.current;
+    if (!video) return;
     if (Hls.isSupported()) {
-      const hls = new Hls({ liveSyncDurationCount: 3 });
+      const hls = new Hls();
       hls.loadSource(src);
       hls.attachMedia(video);
       return () => hls.destroy();
     }
     video.src = src;
   }, [src]);
+  return (
+    <div className="pointer-events-none absolute inset-0">
+      <video ref={ref} autoPlay muted playsInline className="h-full w-full opacity-0" />
+    </div>
+  );
+}
 
-  return <video ref={videoRef} controls autoPlay muted playsInline className="h-full w-full" />;
+function Overlay({ text }: { text: string }) {
+  return (
+    <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/40 text-zinc-300">
+      {text}
+    </div>
+  );
 }
 
 export default function ChannelPage() {
@@ -57,14 +122,8 @@ export default function ChannelPage() {
       </div>
 
       {channel.type === 'TV' ? (
-        <div className="aspect-video overflow-hidden rounded-xl bg-black">
-          {channel.hls ? (
-            <HlsPlayer src={channel.hls} />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center text-zinc-600">
-              Not currently streaming
-            </div>
-          )}
+        <div className="relative aspect-video overflow-hidden rounded-xl bg-black">
+          <TvPlayer channel={channel} />
         </div>
       ) : (
         <div className="rounded-xl bg-zinc-900 p-6">
