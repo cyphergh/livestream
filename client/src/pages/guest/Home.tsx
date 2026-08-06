@@ -4,6 +4,7 @@ import type { Channel } from '../../types';
 import { Link } from 'react-router-dom';
 import { create } from 'zustand';
 import { useLiveStore } from '../../stores/liveStore';
+import { useAuthStore } from '../../stores/authStore';
 
 interface ChannelsState {
   channels: Channel[];
@@ -35,8 +36,15 @@ function ChannelCard({ channel, live }: { channel: Channel; live: boolean }) {
             {channel.name.charAt(0)}
           </div>
         )}
+        {channel.logoUrl && (
+          <img
+            src={channel.logoUrl}
+            alt={`${channel.name} logo`}
+            className="absolute left-2 top-2 h-8 w-8 rounded object-cover shadow"
+          />
+        )}
         <span
-          className={`absolute left-2 top-2 rounded px-2 py-0.5 text-xs font-semibold ${
+          className={`absolute right-2 top-2 rounded px-2 py-0.5 text-xs font-semibold ${
             live ? 'bg-red-600 text-white' : 'bg-zinc-700/80 text-zinc-200'
           }`}
         >
@@ -58,11 +66,14 @@ export default function Home() {
   const { channels, loading, load } = useChannels();
   const live = useLiveStore((s) => s.live);
   const connect = useLiveStore((s) => s.connect);
+  const { user } = useAuthStore();
 
   useEffect(() => {
     connect();
     load();
   }, [connect, load]);
+
+  const isStaff = user && (user.role === 'ADMIN' || user.role === 'PRODUCER');
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
@@ -71,9 +82,17 @@ export default function Home() {
         <nav className="flex gap-4 text-sm text-zinc-300">
           <Link to="/radio">Radio</Link>
           <Link to="/epg">EPG</Link>
-          <Link to="/login" className="text-brand-600">
-            Sign in
-          </Link>
+          {isStaff ? (
+            <Link to="/admin" className="text-brand-600">
+              Dashboard
+            </Link>
+          ) : user ? (
+            <span className="text-zinc-500">{user.name}</span>
+          ) : (
+            <Link to="/login" className="text-brand-600">
+              Sign in
+            </Link>
+          )}
         </nav>
       </header>
 
