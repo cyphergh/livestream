@@ -1,26 +1,48 @@
-# Local (non-Docker) MediaMTX config used by `bun run dev:media`.
-# Copy of the docker config with localhost external auth.
+# Local (non-Docker) MediaMTX config — schema for v1.20+.
 
 logLevel: info
 
-api: yes
-apiAddress: :9997
-apiAuthentication: yes
-apiKey: change-me-mediamtx-key
+# API on localhost, excluded from HTTP auth (internal localhost user allows it).
+api: true
+apiAddress: 127.0.0.1:9997
+apiEncryption: false
 
-rtmp: yes
+rtmp: true
 rtmpAddress: :1935
-rtsp: yes
+rtsp: true
 rtspAddress: :8554
-srt: yes
+srt: true
 srtAddress: :8890
-hls: yes
+hls: true
 hlsAddress: :8888
-webrtc: yes
+# Our backend proxy identifies as a CDN, which disables HLS session/cookie checks.
+hlsCDNSecret: mediamtx-key-dev-5a1b2c
+webrtc: true
 webrtcAddress: :8889
-# Allow CORS for HLS/WebRTC requested from the Vite dev server.
-corsAllowOrigins:
-  - '*'
 
-authMethod: external
-externalAuthenticationURL: http://localhost:3000/api/media/auth
+# Authorize publishers/readers through our Bun backend.
+authMethod: http
+authHTTPAddress: http://localhost:3000/api/media/auth
+authHTTPExclude:
+  - action: api
+    path:
+  - action: metrics
+    path:
+
+# Internal users used for actions excluded from HTTP auth (API on localhost).
+authInternalUsers:
+  - user: any
+    pass:
+    ips: ["127.0.0.1", "::1"]
+    permissions:
+      - action: api
+        path:
+      - action: metrics
+        path:
+      - action: pprof
+        path:
+
+# Dynamic paths: any path can be created on first publish (auth still enforced).
+paths:
+  all_others: {}
+hlsVariant: mpegts

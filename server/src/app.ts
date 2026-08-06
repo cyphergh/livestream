@@ -5,6 +5,7 @@ import { auth } from './modules/auth/auth';
 import { publicChannels, adminChannels } from './modules/channels/channels';
 import { mediaAuth } from './modules/media/auth';
 import { whip } from './modules/media/whip';
+import { hlsProxy } from './modules/media/hls';
 import { ingest } from './modules/ingest/ingest';
 
 export const app = new Elysia()
@@ -18,6 +19,7 @@ export const app = new Elysia()
   .use(auth)
   .use(mediaAuth)
   .use(whip)
+  .use(hlsProxy)
   .use(publicChannels)
   .use(adminChannels)
   .use(ingest)

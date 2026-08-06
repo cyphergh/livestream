@@ -70,9 +70,9 @@ export const mediaServer = {
   },
 };
 
-/** MediaMTX HLS playback URL for a given path. */
+/** MediaMTX HLS playback URL for a given path, served via our single-origin proxy. */
 export function hlsUrl(path: string): string {
-  return `${config.MEDIAMTX_HLS_URL}/${encodeURIComponent(path)}/index.m3u8`;
+  return `/api/hls/${encodeURIComponent(path)}/index.m3u8`;
 }
 
 /** MediaMTX WHEP read URL for a given path. */

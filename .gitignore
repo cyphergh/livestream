@@ -6,3 +6,7 @@ build/
 *.log
 .DS_Store
 .coverage/
+
+# MediaMTX auto-generated self-signed certs (WebRTC/WHEP/WHIP)
+auto.crt
+auto.key

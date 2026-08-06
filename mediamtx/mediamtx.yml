@@ -17,6 +17,8 @@ srt: yes
 srtAddress: :8890
 hls: yes
 hlsAddress: :8888
+# Our backend proxy presents this secret to disable the HLS session/cookie check.
+hlsCDNSecret: change-me-mediamtx-key
 webrtc: yes
 webrtcAddress: :8889
 
@@ -26,3 +28,5 @@ externalAuthenticationURL: http://host.docker.internal:3000/api/media/auth
 
 # Paths are dynamic (created by the backend via the API / on first publish).
 # By default any path can be published once external auth allows it.
+paths:
+  all_others: {}

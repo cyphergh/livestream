@@ -26,13 +26,13 @@ const ingestInfo = async (channelId: string) => {
   };
 };
 
-export const ingest = new Elysia({ prefix: '/api/admin/channels/:channelId' })
+export const ingest = new Elysia({ prefix: "/api/admin/channels/:id" })
   .use(jwtPlugin())
   .derive(async (ctx) => ({ user: await resolveUser(ctx) }))
   .get('/ingest', async ({ params, user, set }) => {
     if (!user || (user.role !== 'ADMIN' && user.role !== 'PRODUCER')) return forbid(set);
-    const info = await ingestInfo(params.channelId);
-    return { ...info, live: await mediaServer.isLive(params.channelId) };
+    const info = await ingestInfo(params.id);
+    return { ...info, live: await mediaServer.isLive(params.id) };
   })
   .post(
     '/ingest',
@@ -40,7 +40,7 @@ export const ingest = new Elysia({ prefix: '/api/admin/channels/:channelId' })
       if (!user || (user.role !== 'ADMIN' && user.role !== 'PRODUCER')) return forbid(set);
       const key = await prisma.ingestKey.create({
         data: {
-          channelId: params.channelId,
+          channelId: params.id,
           name: body.name,
           protocol: body.protocol,
           password: crypto.randomUUID().replaceAll('-', '').slice(0, 24),
@@ -57,13 +57,13 @@ export const ingest = new Elysia({ prefix: '/api/admin/channels/:channelId' })
   )
   .delete('/ingest/:keyId', async ({ params, user, set }) => {
     if (!user || (user.role !== 'ADMIN' && user.role !== 'PRODUCER')) return forbid(set);
-    await prisma.ingestKey.deleteMany({ where: { id: params.keyId, channelId: params.channelId } });
+    await prisma.ingestKey.deleteMany({ where: { id: params.keyId, channelId: params.id } });
     return { ok: true };
   })
   // Restream targets — push our stream out to external platforms.
   .get('/restreams', async ({ params, user, set }) => {
     if (!user || (user.role !== 'ADMIN' && user.role !== 'PRODUCER')) return forbid(set);
-    const items = await prisma.restreamTarget.findMany({ where: { channelId: params.channelId } });
+    const items = await prisma.restreamTarget.findMany({ where: { channelId: params.id } });
     return { items };
   })
   .post(
@@ -71,25 +71,25 @@ export const ingest = new Elysia({ prefix: '/api/admin/channels/:channelId' })
     async ({ params, body, user, set }) => {
       if (!user || (user.role !== 'ADMIN' && user.role !== 'PRODUCER')) return forbid(set);
       const item = await prisma.restreamTarget.create({
-        data: { channelId: params.channelId, name: body.name, url: body.url },
+        data: { channelId: params.id, name: body.name, url: body.url },
       });
-      await syncRestreams(params.channelId);
+      await syncRestreams(params.id);
       return { item };
     },
     {
       body: t.Object({ name: t.String(), url: t.String() }),
     }
   )
-  .delete('/restreams/:id', async ({ params, user, set }) => {
+  .delete('/restreams/:rid', async ({ params, user, set }) => {
     if (!user || (user.role !== 'ADMIN' && user.role !== 'PRODUCER')) return forbid(set);
-    await prisma.restreamTarget.deleteMany({ where: { id: params.id, channelId: params.channelId } });
-    await syncRestreams(params.channelId);
+    await prisma.restreamTarget.deleteMany({ where: { id: params.rid, channelId: params.id } });
+    await syncRestreams(params.id);
     return { ok: true };
   })
   // Pull sources — import external streams (URLs) as channels.
   .get('/pulls', async ({ params, user, set }) => {
     if (!user || (user.role !== 'ADMIN' && user.role !== 'PRODUCER')) return forbid(set);
-    const items = await prisma.pullSource.findMany({ where: { channelId: params.channelId } });
+    const items = await prisma.pullSource.findMany({ where: { channelId: params.id } });
     return { items };
   })
   .post(
@@ -97,27 +97,27 @@ export const ingest = new Elysia({ prefix: '/api/admin/channels/:channelId' })
     async ({ params, body, user, set }) => {
       if (!user || (user.role !== 'ADMIN' && user.role !== 'PRODUCER')) return forbid(set);
       const item = await prisma.pullSource.create({
-        data: { channelId: params.channelId, name: body.name, url: body.url },
+        data: { channelId: params.id, name: body.name, url: body.url },
       });
-      await mediaServer.addPath(params.channelId, { source: body.url });
+      await mediaServer.addPath(params.id, { source: body.url });
       return { item };
     },
     {
       body: t.Object({ name: t.String(), url: t.String() }),
     }
   )
-  .delete('/pulls/:id', async ({ params, user, set }) => {
+  .delete('/pulls/:pid', async ({ params, user, set }) => {
     if (!user || (user.role !== 'ADMIN' && user.role !== 'PRODUCER')) return forbid(set);
-    await prisma.pullSource.deleteMany({ where: { id: params.id, channelId: params.channelId } });
-    const remaining = await prisma.pullSource.findMany({ where: { channelId: params.channelId } });
-    if (remaining.length === 0) await mediaServer.deletePath(params.channelId).catch(() => {});
+    await prisma.pullSource.deleteMany({ where: { id: params.pid, channelId: params.id } });
+    const remaining = await prisma.pullSource.findMany({ where: { channelId: params.id } });
+    if (remaining.length === 0) await mediaServer.deletePath(params.id).catch(() => {});
     return { ok: true };
   })
   // Sessions — go-live / stop-live records.
   .get('/sessions', async ({ params, user, set }) => {
     if (!user || (user.role !== 'ADMIN' && user.role !== 'PRODUCER')) return forbid(set);
     const sessions = await prisma.session.findMany({
-      where: { channelId: params.channelId },
+      where: { channelId: params.id },
       orderBy: { startedAt: 'desc' },
       take: 20,
     });
@@ -127,11 +127,11 @@ export const ingest = new Elysia({ prefix: '/api/admin/channels/:channelId' })
     if (!user || (user.role !== 'ADMIN' && user.role !== 'PRODUCER')) return forbid(set);
     // End any open session for this channel first.
     await prisma.session.updateMany({
-      where: { channelId: params.channelId, isLive: true },
+      where: { channelId: params.id, isLive: true },
       data: { isLive: false, endedAt: new Date() },
     });
     const session = await prisma.session.create({
-      data: { channelId: params.channelId, title: body.title, scheduled: body.scheduled ?? false },
+      data: { channelId: params.id, title: body.title, scheduled: body.scheduled ?? false },
     });
     return { session };
   }, {
@@ -144,7 +144,7 @@ export const ingest = new Elysia({ prefix: '/api/admin/channels/:channelId' })
   .post('/sessions/stop', async ({ params, user, set }) => {
     if (!user || (user.role !== 'ADMIN' && user.role !== 'PRODUCER')) return forbid(set);
     const stopped = await prisma.session.updateMany({
-      where: { channelId: params.channelId, isLive: true },
+      where: { channelId: params.id, isLive: true },
       data: { isLive: false, endedAt: new Date() },
     });
     return { ok: true, stopped: stopped.count };

@@ -15,6 +15,7 @@ const envSchema = z.object({
 
   MEDIAMTX_API: z.string().default('http://localhost:9997'),
   MEDIAMTX_API_KEY: z.string().min(1),
+  MEDIAMTX_HLS_SECRET: z.string().min(1),
   MEDIAMTX_HLS_URL: z.string().default('http://localhost:8888'),
   MEDIAMTX_WHEP_URL: z.string().default('http://localhost:8889'),
   MEDIAMTX_RTMP_ADDR: z.string().default('localhost:1935'),
