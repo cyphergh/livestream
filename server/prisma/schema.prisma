@@ -23,6 +23,11 @@ enum Visibility {
   PRIVATE
 }
 
+enum AccessType {
+  FREE
+  SUBSCRIPTION
+}
+
 model User {
   id         String   @id @default(cuid())
   email      String   @unique
@@ -58,6 +63,8 @@ model Channel {
   description String?
   type        ChannelType @default(TV)
   visibility  Visibility  @default(PUBLIC)
+  // TV monetization: free-to-air or subscription.
+  accessType  AccessType  @default(FREE)
   logoUrl     String?
   coverUrl    String?
   ownerId     String
@@ -71,7 +78,7 @@ model Channel {
   restreams     RestreamTarget[]
   pullSources   PullSource[]
   chatMessages  ChatMessage[]
-  ticker        Ticker?
+  overlay       Overlay?
 
   @@index([ownerId])
 }
@@ -155,19 +162,34 @@ model ChatMessage {
   @@index([channelId, createdAt])
 }
 
-model Ticker {
-  id        String  @id @default(cuid())
-  channelId String  @unique
-  channel   Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
-  enabled   Boolean @default(false)
-  text      String  @default("")
-  // Style settings rendered by viewers as a scrolling marquee.
-  opacity   Float   @default(0.85) // 0..1
-  position  String  @default("bottom") // bottom | top
-  fontSize  Int     @default(28)
-  color     String  @default("#ffffff")
-  bgColor   String  @default("rgba(0,0,0,0.55)")
-  speed     Int     @default(12) // px/s scroll speed
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+// Visual overlay rendered on top of the video for viewers. One per channel.
+// mode: off | ticker (scrolling marquee) | image (static logo/picture) | text
+model Overlay {
+  id           String  @id @default(cuid())
+  channelId    String  @unique
+  channel      Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  mode         String  @default("off") // off | ticker | image | text
+  // Show the channel logo on the top-right corner of TV playback (even in fullscreen).
+  logoVisible  Boolean @default(true)
+
+  // ---- ticker (scrolling marquee) ----
+  text         String  @default("")
+  position     String  @default("bottom") // ticker: bottom|top, static: + corners & center
+  fontSize     Int     @default(28)
+  color        String  @default("#ffffff")
+  bgColor      String  @default("rgba(0,0,0,0.55)")
+  speed        Int     @default(12) // px/s scroll speed
+
+  // ---- shared ----
+  opacity      Float   @default(0.85) // 0..1
+
+  // ---- image overlay ----
+  imageUrl     String?
+  width        Int?
+  height       Int?
+  borderRadius Int     @default(0)
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }

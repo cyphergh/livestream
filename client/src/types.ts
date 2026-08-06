@@ -10,6 +10,7 @@ export interface User {
 
 export type ChannelType = 'RADIO' | 'TV';
 export type Visibility = 'PUBLIC' | 'PRIVATE';
+export type AccessType = 'FREE' | 'SUBSCRIPTION';
 
 export interface Channel {
   id: string;
@@ -18,24 +19,40 @@ export interface Channel {
   description?: string | null;
   type: ChannelType;
   visibility: Visibility;
+  accessType: AccessType;
   logoUrl?: string | null;
   coverUrl?: string | null;
   live: boolean;
   hls?: string | null;
   whep?: string | null;
   programs?: Program[];
-  ticker?: Ticker | null;
+  overlay?: Overlay | null;
 }
 
-export interface Ticker {
-  enabled: boolean;
+export type OverlayMode = 'off' | 'ticker' | 'image' | 'text';
+export type OverlayPosition =
+  | 'bottom'
+  | 'top'
+  | 'top-left'
+  | 'top-right'
+  | 'bottom-left'
+  | 'bottom-right'
+  | 'center';
+
+export interface Overlay {
+  mode: OverlayMode;
+  logoVisible: boolean;
   text: string;
-  opacity: number;
-  position: 'bottom' | 'top';
+  position: OverlayPosition;
   fontSize: number;
   color: string;
   bgColor: string;
   speed: number;
+  opacity: number;
+  imageUrl: string | null;
+  width: number | null;
+  height: number | null;
+  borderRadius: number;
 }
 
 export interface Program {

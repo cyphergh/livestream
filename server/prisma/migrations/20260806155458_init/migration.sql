@@ -7,6 +7,9 @@ CREATE TYPE "ChannelType" AS ENUM ('RADIO', 'TV');
 -- CreateEnum
 CREATE TYPE "Visibility" AS ENUM ('PUBLIC', 'PRIVATE');
 
+-- CreateEnum
+CREATE TYPE "AccessType" AS ENUM ('FREE', 'SUBSCRIPTION');
+
 -- CreateTable
 CREATE TABLE "User" (
     "id" TEXT NOT NULL,
@@ -41,6 +44,7 @@ CREATE TABLE "Channel" (
     "description" TEXT,
     "type" "ChannelType" NOT NULL DEFAULT 'TV',
     "visibility" "Visibility" NOT NULL DEFAULT 'PUBLIC',
+    "accessType" "AccessType" NOT NULL DEFAULT 'FREE',
     "logoUrl" TEXT,
     "coverUrl" TEXT,
     "ownerId" TEXT NOT NULL,
@@ -126,6 +130,29 @@ CREATE TABLE "ChatMessage" (
     CONSTRAINT "ChatMessage_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "Overlay" (
+    "id" TEXT NOT NULL,
+    "channelId" TEXT NOT NULL,
+    "mode" TEXT NOT NULL DEFAULT 'off',
+    "logoVisible" BOOLEAN NOT NULL DEFAULT true,
+    "text" TEXT NOT NULL DEFAULT '',
+    "position" TEXT NOT NULL DEFAULT 'bottom',
+    "fontSize" INTEGER NOT NULL DEFAULT 28,
+    "color" TEXT NOT NULL DEFAULT '#ffffff',
+    "bgColor" TEXT NOT NULL DEFAULT 'rgba(0,0,0,0.55)',
+    "speed" INTEGER NOT NULL DEFAULT 12,
+    "opacity" DOUBLE PRECISION NOT NULL DEFAULT 0.85,
+    "imageUrl" TEXT,
+    "width" INTEGER,
+    "height" INTEGER,
+    "borderRadius" INTEGER NOT NULL DEFAULT 0,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "Overlay_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
 
@@ -153,6 +180,9 @@ CREATE INDEX "IngestKey_channelId_idx" ON "IngestKey"("channelId");
 -- CreateIndex
 CREATE INDEX "ChatMessage_channelId_createdAt_idx" ON "ChatMessage"("channelId", "createdAt");
 
+-- CreateIndex
+CREATE UNIQUE INDEX "Overlay_channelId_key" ON "Overlay"("channelId");
+
 -- AddForeignKey
 ALTER TABLE "RefreshToken" ADD CONSTRAINT "RefreshToken_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
@@ -179,3 +209,6 @@ ALTER TABLE "ChatMessage" ADD CONSTRAINT "ChatMessage_channelId_fkey" FOREIGN KE
 
 -- AddForeignKey
 ALTER TABLE "ChatMessage" ADD CONSTRAINT "ChatMessage_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Overlay" ADD CONSTRAINT "Overlay_channelId_fkey" FOREIGN KEY ("channelId") REFERENCES "Channel"("id") ON DELETE CASCADE ON UPDATE CASCADE;

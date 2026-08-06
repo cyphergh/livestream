@@ -5,7 +5,7 @@ import { isProducer } from '../../lib/auth';
 import { jwtPlugin } from '../../lib/jwt-plugin';
 import { resolveUser } from '../../lib/user';
 import { slugify } from '../../lib/slug';
-import { publishTicker } from '../realtime';
+import { publishOverlay } from '../realtime';
 
 const serializeChannel = async (c: any) => {
   const live = await mediaServer.isLive(c.id);
@@ -16,24 +16,30 @@ const serializeChannel = async (c: any) => {
     description: c.description,
     type: c.type,
     visibility: c.visibility,
+    accessType: c.accessType ?? 'FREE',
     logoUrl: c.logoUrl,
     coverUrl: c.coverUrl,
     live,
     hls: live ? hlsUrl(c.id) : null,
     whep: live ? whepUrl(c.id) : null,
-    ticker: c.ticker?.enabled ? serializeTicker(c.ticker) : null,
+    overlay: c.overlay ? serializeOverlay(c.overlay) : null,
   };
 };
 
-const serializeTicker = (t: any) => ({
-  enabled: t.enabled,
-  text: t.text,
-  opacity: t.opacity,
-  position: t.position,
-  fontSize: t.fontSize,
-  color: t.color,
-  bgColor: t.bgColor,
-  speed: t.speed,
+const serializeOverlay = (o: any) => ({
+  mode: o.mode,
+  logoVisible: o.logoVisible,
+  text: o.text,
+  position: o.position,
+  fontSize: o.fontSize,
+  color: o.color,
+  bgColor: o.bgColor,
+  speed: o.speed,
+  opacity: o.opacity,
+  imageUrl: o.imageUrl,
+  width: o.width,
+  height: o.height,
+  borderRadius: o.borderRadius,
 });
 
 export const publicChannels = new Elysia({ prefix: '/api/channels' })
@@ -41,12 +47,12 @@ export const publicChannels = new Elysia({ prefix: '/api/channels' })
     const channels = await prisma.channel.findMany({
       where: { visibility: 'PUBLIC' },
       orderBy: { createdAt: 'asc' },
-      include: { ticker: true },
+      include: { overlay: true },
     });
     return { items: await Promise.all(channels.map(serializeChannel)) };
   })
   .get('/:slug', async ({ params, set }) => {
-    const c = await prisma.channel.findUnique({ where: { slug: params.slug }, include: { ticker: true } });
+    const c = await prisma.channel.findUnique({ where: { slug: params.slug }, include: { overlay: true } });
     if (!c || c.visibility !== 'PUBLIC') {
       set.status = 404;
       return { message: 'Channel not found' };
@@ -68,7 +74,7 @@ export const adminChannels = new Elysia({ prefix: '/api/admin/channels' })
       return { message: 'Forbidden' };
     }
     const where = user!.role === 'ADMIN' ? {} : { ownerId: user!.id };
-    const channels = await prisma.channel.findMany({ where, orderBy: { createdAt: 'asc' }, include: { ticker: true } });
+    const channels = await prisma.channel.findMany({ where, orderBy: { createdAt: 'asc' }, include: { overlay: true } });
     return { items: await Promise.all(channels.map(serializeChannel)) };
   })
   .post(
@@ -90,6 +96,8 @@ export const adminChannels = new Elysia({ prefix: '/api/admin/channels' })
           description: body.description,
           type: body.type,
           visibility: body.visibility,
+          accessType: body.accessType,
+          logoUrl: body.logoUrl,
           ownerId: user!.id,
         },
       });
@@ -111,6 +119,8 @@ export const adminChannels = new Elysia({ prefix: '/api/admin/channels' })
         description: t.Optional(t.String()),
         type: t.Enum({ RADIO: 'RADIO', TV: 'TV' }),
         visibility: t.Optional(t.Enum({ PUBLIC: 'PUBLIC', PRIVATE: 'PRIVATE' })),
+        accessType: t.Optional(t.Enum({ FREE: 'FREE', SUBSCRIPTION: 'SUBSCRIPTION' })),
+        logoUrl: t.Optional(t.String()),
       }),
     }
   )
@@ -129,7 +139,7 @@ export const adminChannels = new Elysia({ prefix: '/api/admin/channels' })
       const updated = await prisma.channel.update({
         where: { id: c.id },
         data: { ...body },
-        include: { ticker: true },
+        include: { overlay: true },
       });
       return { channel: await serializeChannel(updated) };
     },
@@ -158,21 +168,22 @@ export const adminChannels = new Elysia({ prefix: '/api/admin/channels' })
     await prisma.channel.delete({ where: { id: c.id } });
     return { ok: true };
   })
-  // Scrolling ticker/marquee config (rendered over the video for viewers).
-  .get('/:id/ticker', async ({ params, user, set }) => {
+  // Overlay config: scrolling ticker / static image / static text rendered
+  // over the video for viewers, plus the channel-logo overlay toggle.
+  .get('/:id/overlay', async ({ params, user, set }) => {
     if (!isProducer(user)) {
       set.status = 403;
       return { message: 'Forbidden' };
     }
-    const c = await prisma.channel.findUnique({ where: { id: params.id }, include: { ticker: true } });
+    const c = await prisma.channel.findUnique({ where: { id: params.id }, include: { overlay: true } });
     if (!c || (user!.role !== 'ADMIN' && c.ownerId !== user!.id)) {
       set.status = 403;
       return { message: 'Forbidden' };
     }
-    return { ticker: c.ticker ? serializeTicker(c.ticker) : null };
+    return { overlay: c.overlay ? serializeOverlay(c.overlay) : null };
   })
   .put(
-    '/:id/ticker',
+    '/:id/overlay',
     async ({ params, body, user, set }) => {
       if (!isProducer(user)) {
         set.status = 403;
@@ -183,25 +194,40 @@ export const adminChannels = new Elysia({ prefix: '/api/admin/channels' })
         set.status = 403;
         return { message: 'Forbidden' };
       }
-      const ticker = await prisma.ticker.upsert({
+      const overlay = await prisma.overlay.upsert({
         where: { channelId: c.id },
         update: { ...body, text: body.text ?? '' },
         create: { channelId: c.id, ...body, text: body.text ?? '' },
       });
-      const serialized = serializeTicker(ticker);
-      publishTicker(c.id, serialized);
-      return { ticker: serialized };
+      const serialized = serializeOverlay(overlay);
+      publishOverlay(c.id, serialized);
+      return { overlay: serialized };
     },
     {
       body: t.Object({
-        enabled: t.Optional(t.Boolean()),
+        mode: t.Optional(t.Enum({ off: 'off', ticker: 'ticker', image: 'image', text: 'text' })),
+        logoVisible: t.Optional(t.Boolean()),
         text: t.Optional(t.String()),
-        opacity: t.Optional(t.Number({ minimum: 0, maximum: 1 })),
-        position: t.Optional(t.Enum({ bottom: 'bottom', top: 'top' })),
-        fontSize: t.Optional(t.Number({ minimum: 8, maximum: 120 })),
+        position: t.Optional(
+          t.Enum({
+            bottom: 'bottom',
+            top: 'top',
+            'top-left': 'top-left',
+            'top-right': 'top-right',
+            'bottom-left': 'bottom-left',
+            'bottom-right': 'bottom-right',
+            center: 'center',
+          })
+        ),
+        fontSize: t.Optional(t.Number({ minimum: 8, maximum: 160 })),
         color: t.Optional(t.String()),
         bgColor: t.Optional(t.String()),
         speed: t.Optional(t.Number({ minimum: 1, maximum: 200 })),
+        opacity: t.Optional(t.Number({ minimum: 0, maximum: 1 })),
+        imageUrl: t.Optional(t.String()),
+        width: t.Optional(t.Number({ minimum: 8, maximum: 2000 })),
+        height: t.Optional(t.Number({ minimum: 8, maximum: 2000 })),
+        borderRadius: t.Optional(t.Number({ minimum: 0, maximum: 500 })),
       }),
     }
   );

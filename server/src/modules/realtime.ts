@@ -58,9 +58,9 @@ export const realtime = new Elysia()
     poll();
   });
 
-// Push an updated ticker config to everyone watching a channel (real-time marquee).
-export function publishTicker(channelId: string, ticker: unknown) {
-  broadcast({ type: 'channel:ticker', id: channelId, ticker });
+// Push an updated overlay config to everyone watching a channel (real-time).
+export function publishOverlay(channelId: string, overlay: unknown) {
+  broadcast({ type: 'channel:overlay', id: channelId, overlay });
 }
 
 export function stopRealtime() {

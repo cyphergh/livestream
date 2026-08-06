@@ -1,12 +1,12 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type RefObject } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import Hls from 'hls.js';
 import { http } from '../../lib/api';
 import { attachWhep } from '../../lib/whep';
 import { useLiveStore } from '../../stores/liveStore';
-import type { Channel, Ticker } from '../../types';
+import type { Channel, Overlay, OverlayPosition } from '../../types';
 
-function TvPlayer({ channel }: { channel: Channel }) {
+function TvPlayer({ channel, containerRef }: { channel: Channel; containerRef: RefObject<HTMLDivElement | null> }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [mode, setMode] = useState<'whep' | 'hls' | 'idle'>('idle');
   const [status, setStatus] = useState('Connecting…');
@@ -14,12 +14,14 @@ function TvPlayer({ channel }: { channel: Channel }) {
   const [muted, setMuted] = useState(true);
 
   // Browsers block autoplay with sound: start muted, then unmute on first tap.
+  // The tap is a user gesture, so we can also request fullscreen right then.
   const handleTap = () => {
     const video = videoRef.current;
     if (!video) return;
     video.muted = false;
     setMuted(false);
     video.play().catch(() => {});
+    containerRef.current?.requestFullscreen?.().catch(() => {});
   };
 
   useEffect(() => {
@@ -120,11 +122,11 @@ function TvPlayer({ channel }: { channel: Channel }) {
         </button>
       )}
       {status && (
-        <div className="absolute right-2 top-2 rounded bg-black/60 px-2 py-0.5 text-xs text-white">
+        <div className="absolute left-2 top-2 rounded bg-black/60 px-2 py-0.5 text-xs text-white">
           {mode === 'whep' ? 'LIVE (WebRTC)' : status}
         </div>
       )}
-      {error && <div className="absolute left-2 top-2 text-xs text-yellow-300">{error}</div>}
+      {error && <div className="absolute left-2 top-9 text-xs text-yellow-300">{error}</div>}
       {!channel.live && <Overlay text="Not currently streaming" />}
     </>
   );
@@ -138,9 +140,63 @@ function Overlay({ text }: { text: string }) {
   );
 }
 
-// Scrolling marquee rendered over the video. Re-renders live whenever the
-// admin saves new ticker settings (pushed over the WebSocket).
-function TickerMarquee({ ticker }: { ticker: Ticker }) {
+// On-screen overlay rendered over the video for viewers: the channel logo on
+// the top-right (also visible in fullscreen) plus the admin-configured overlay
+// (scrolling ticker / static image / static text). Re-renders live whenever an
+// admin saves new settings (pushed over the WebSocket).
+function OverlayLayer({ overlay, logo }: { overlay: Overlay | null; logo: string | null }) {
+  if (!overlay) return null;
+  const pos = positionClass(overlay.position);
+
+  return (
+    <>
+      {overlay.logoVisible && logo && (
+        <img
+          src={logo}
+          alt="channel logo"
+          className="pointer-events-none absolute right-3 top-3 object-contain"
+          style={{ height: '9%', width: 'auto' }}
+        />
+      )}
+
+      {overlay.mode === 'ticker' && (
+        <TickerMarquee overlay={overlay} />
+      )}
+
+      {overlay.mode === 'image' && overlay.imageUrl && (
+        <img
+          src={overlay.imageUrl}
+          alt="overlay"
+          className={`pointer-events-none absolute ${pos} object-contain`}
+          style={{
+            width: overlay.width ?? 120,
+            height: overlay.height ?? 80,
+            borderRadius: overlay.borderRadius,
+            opacity: overlay.opacity,
+          }}
+        />
+      )}
+
+      {overlay.mode === 'text' && (
+        <div
+          className={`pointer-events-none absolute ${pos} px-3 py-1.5`}
+          style={{
+            fontSize: `${overlay.fontSize}px`,
+            color: overlay.color,
+            backgroundColor: overlay.bgColor,
+            borderRadius: overlay.borderRadius,
+            opacity: overlay.opacity,
+          }}
+        >
+          {overlay.text}
+        </div>
+      )}
+    </>
+  );
+}
+
+// Scrolling marquee, speed computed from the admin-configured px/s value.
+function TickerMarquee({ overlay }: { overlay: Overlay }) {
   const trackRef = useRef<HTMLDivElement>(null);
   const [dur, setDur] = useState(20);
 
@@ -148,20 +204,20 @@ function TickerMarquee({ ticker }: { ticker: Ticker }) {
     const track = trackRef.current;
     if (!track) return;
     const width = track.offsetWidth / 2; // two copies, half is one text pass
-    setDur(Math.max(4, width / Math.max(1, ticker.speed)));
-  }, [ticker.text, ticker.fontSize, ticker.speed]);
+    setDur(Math.max(4, width / Math.max(1, overlay.speed)));
+  }, [overlay.text, overlay.fontSize, overlay.speed]);
 
   const style: CSSProperties = {
-    fontSize: `${ticker.fontSize}px`,
-    color: ticker.color,
-    backgroundColor: ticker.bgColor,
-    opacity: ticker.opacity,
+    fontSize: `${overlay.fontSize}px`,
+    color: overlay.color,
+    backgroundColor: overlay.bgColor,
+    opacity: overlay.opacity,
   };
 
   return (
     <div
       className={`pointer-events-none absolute inset-x-0 overflow-hidden py-1.5 ${
-        ticker.position === 'top' ? 'top-0' : 'bottom-0'
+        overlay.position === 'top' ? 'top-0' : 'bottom-0'
       }`}
       style={style}
     >
@@ -170,11 +226,30 @@ function TickerMarquee({ ticker }: { ticker: Ticker }) {
         className="inline-flex whitespace-nowrap will-change-transform"
         style={{ animation: `marquee ${dur}s linear infinite` }}
       >
-        <span className="px-6 font-semibold">{ticker.text}</span>
-        <span className="px-6 font-semibold">{ticker.text}</span>
+        <span className="px-6 font-semibold">{overlay.text}</span>
+        <span className="px-6 font-semibold">{overlay.text}</span>
       </div>
     </div>
   );
+}
+
+function positionClass(p: OverlayPosition): string {
+  switch (p) {
+    case 'top':
+      return 'inset-x-0 top-0 text-center';
+    case 'bottom':
+      return 'inset-x-0 bottom-0 text-center';
+    case 'top-left':
+      return 'left-3 top-3';
+    case 'top-right':
+      return 'right-3 top-3';
+    case 'bottom-left':
+      return 'bottom-3 left-3';
+    case 'bottom-right':
+      return 'bottom-3 right-3';
+    case 'center':
+      return 'left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2';
+  }
 }
 
 export default function ChannelPage() {
@@ -183,8 +258,9 @@ export default function ChannelPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const liveMap = useLiveStore((s) => s.live);
-  const tickers = useLiveStore((s) => s.tickers);
+  const overlays = useLiveStore((s) => s.overlays);
   const connect = useLiveStore((s) => s.connect);
+  const playerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     connect();
@@ -209,9 +285,17 @@ export default function ChannelPage() {
   if (error || !channel)
     return <div className="mx-auto max-w-4xl px-4 py-8 text-zinc-400">{error ?? 'Not found'}</div>;
 
-  // Real-time ticker: prefer the live-WebSocket copy so admin edits apply
+  // Real-time overlay: prefer the live-WebSocket copy so admin edits apply
   // instantly, falling back to the value baked into the channel fetch.
-  const ticker = tickers[channel.id] ?? channel.ticker ?? null;
+  const overlay = overlays[channel.id] ?? channel.overlay ?? null;
+
+  const toggleFullscreen = () => {
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    } else {
+      playerRef.current?.requestFullscreen?.().catch(() => {});
+    }
+  };
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
@@ -230,9 +314,16 @@ export default function ChannelPage() {
       </div>
 
       {channel.type === 'TV' ? (
-        <div className="relative aspect-video overflow-hidden rounded-xl bg-black">
-          <TvPlayer channel={channel} />
-          {channel.live && ticker && ticker.enabled && <TickerMarquee ticker={ticker} />}
+        <div ref={playerRef} className="relative aspect-video overflow-hidden rounded-xl bg-black">
+          <TvPlayer channel={channel} containerRef={playerRef} />
+          <OverlayLayer overlay={overlay} logo={channel.logoUrl ?? null} />
+          <button
+            type="button"
+            onClick={toggleFullscreen}
+            className="absolute bottom-3 left-3 z-10 rounded bg-black/50 px-2 py-1 text-xs text-white hover:bg-black/70"
+          >
+            {document.fullscreenElement ? 'Exit fullscreen' : 'Fullscreen'}
+          </button>
         </div>
       ) : (
         <div className="rounded-xl bg-zinc-900 p-6">

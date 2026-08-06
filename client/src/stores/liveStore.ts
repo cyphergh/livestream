@@ -1,16 +1,17 @@
 import { create } from 'zustand';
-import type { Ticker } from '../types';
+import type { Overlay } from '../types';
 
 // Live-status bus. Connects once to the backend WebSocket and keeps a map of
 // channelId -> live so any page can update badges/players without reloading.
-// Also carries real-time ticker (marquee) updates broadcast by admins.
+// Also carries real-time overlay (logo/ticker/image/text) updates broadcast
+// by admins from the Studio.
 
 interface LiveState {
   live: Record<string, boolean>;
-  tickers: Record<string, Ticker>;
+  overlays: Record<string, Overlay>;
   connect: () => void;
   setLive: (id: string, live: boolean) => void;
-  setTicker: (id: string, ticker: Ticker) => void;
+  setOverlay: (id: string, overlay: Overlay) => void;
 }
 
 let socket: WebSocket | null = null;
@@ -18,7 +19,7 @@ let retry: ReturnType<typeof setTimeout> | null = null;
 
 export const useLiveStore = create<LiveState>((set, get) => ({
   live: {},
-  tickers: {},
+  overlays: {},
 
   connect: () => {
     if (socket || socket !== null) return;
@@ -29,7 +30,7 @@ export const useLiveStore = create<LiveState>((set, get) => ({
       try {
         const msg = JSON.parse(e.data);
         if (msg.type === 'channel:live') get().setLive(msg.id, msg.live);
-        else if (msg.type === 'channel:ticker') get().setTicker(msg.id, msg.ticker);
+        else if (msg.type === 'channel:overlay') get().setOverlay(msg.id, msg.overlay);
       } catch {
         /* ignore malformed frames */
       }
@@ -41,7 +42,7 @@ export const useLiveStore = create<LiveState>((set, get) => ({
   },
 
   setLive: (id, live) => set((s) => ({ live: { ...s.live, [id]: live } })),
-  setTicker: (id, ticker) => set((s) => ({ tickers: { ...s.tickers, [id]: ticker } })),
+  setOverlay: (id, overlay) => set((s) => ({ overlays: { ...s.overlays, [id]: overlay } })),
 }));
 
 export function disconnectLive() {

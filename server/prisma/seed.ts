@@ -1,5 +1,4 @@
 import { PrismaClient } from '@prisma/client';
-import { slugify } from '../src/lib/slug';
 
 const prisma = new PrismaClient();
 
@@ -18,40 +17,8 @@ async function main() {
     console.log('Created admin user', adminEmail);
   }
 
-  const samples: { name: string; type: 'RADIO' | 'TV'; description: string }[] = [
-    { name: 'Vibe FM', type: 'RADIO', description: 'Hits & charts 24/7' },
-    { name: 'News 24', type: 'TV', description: 'Live news channel' },
-    { name: 'Sports One', type: 'TV', description: 'Sports highlights & live games' },
-  ];
-
-  for (const s of samples) {
-    const slug = slugify(s.name);
-    const existing = await prisma.channel.findUnique({ where: { slug } });
-    if (existing) continue;
-    const channel = await prisma.channel.create({
-      data: {
-        slug,
-        name: s.name,
-        description: s.description,
-        type: s.type,
-        ownerId: admin.id,
-      },
-    });
-    for (const def of [
-      { name: 'Primary RTMP', protocol: 'rtmp' as const },
-      { name: 'WebRTC (WHIP)', protocol: 'whep' as const },
-    ]) {
-      await prisma.ingestKey.create({
-        data: {
-          channelId: channel.id,
-          name: def.name,
-          protocol: def.protocol,
-          password: crypto.randomUUID().replaceAll('-', '').slice(0, 24),
-        },
-      });
-    }
-    console.log('Seeded channel', s.name);
-  }
+  // No channels are created by default. Admins create TV/radio stations from
+  // the dashboard (name, logo, and for TV: free-to-air or subscription).
 
   console.log('Seed complete ✔');
 }
