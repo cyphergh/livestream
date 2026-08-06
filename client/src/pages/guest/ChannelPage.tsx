@@ -49,8 +49,22 @@ function TvPlayer({ channel }: { channel: Channel }) {
     if (channel.whep) {
       attachWhep(video, channel.whep, (s) => {
         setStatus(s);
-        if (s === 'connected') setMode('whep');
-        if (s === 'failed' || s === 'closed') fallbackToHls();
+        if (s === 'connected') {
+          setMode('whep');
+          // Safety net: WebRTC may be 'connected' before/without a video track.
+          // If no video track arrives shortly, fall back to HLS so the viewer
+          // always sees something.
+          setTimeout(() => {
+            if (cancelled || fallback) return;
+            const hasVideo = (video.srcObject as MediaStream | null)?.getVideoTracks().length ?? 0;
+            if (hasVideo > 0) {
+              video.play().catch(() => {});
+            } else {
+              fallbackToHls();
+            }
+          }, 2500);
+        }
+        if (s === 'failed') fallbackToHls();
       })
         .then((cleanup) => {
           whepCleanup = cleanup;

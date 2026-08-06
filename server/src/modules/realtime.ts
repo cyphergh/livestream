@@ -31,14 +31,16 @@ let timer: ReturnType<typeof setTimeout> | null = null;
 async function poll() {
   try {
     const channels = await prisma.channel.findMany({ select: { id: true } });
-    const live = new Set<string>();
-    for (const c of channels) if (await mediaServer.isLive(c.id)) live.add(c.id);
+    // One list call per poll — avoids MediaMTX 404 noise from per-channel getPath.
+    const { items } = await mediaServer.listPaths();
+    const ready = new Set(items.filter((p) => p.ready).map((p) => p.name));
+    const live = new Set(channels.filter((c) => ready.has(c.id)).map((c) => c.id));
 
     for (const id of live) if (!known.has(id)) broadcast({ type: 'channel:live', id, live: true });
     for (const id of known) if (!live.has(id)) broadcast({ type: 'channel:live', id, live: false });
     known = live;
   } catch {
-    // transient — retry next tick
+    // transient errors are retried next tick
   }
 }
 

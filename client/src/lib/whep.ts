@@ -53,7 +53,13 @@ export async function attachWhep(
     }
   };
 
-  pc.onconnectionstatechange = () => onState?.(pc.connectionState);
+  pc.onconnectionstatechange = () => {
+    // 'disconnected' can be transient; only give up after a hard failure.
+    if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
+      close();
+    }
+    onState?.(pc.connectionState);
+  };
 
   const close = () => {
     pc.close();
