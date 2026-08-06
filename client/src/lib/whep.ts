@@ -24,10 +24,18 @@ export async function attachWhep(
   await pc.setRemoteDescription({ type: 'answer', sdp: answer });
   const resource = res.headers.get('Location') ?? whepUrl;
 
+  // MediaMTX answers don't include a=msid, so ontrack fires once per track with
+  // an empty `streams` array. Accumulate every track into ONE MediaStream; if we
+  // reassigned srcObject per track, the last track (audio) would silently drop video.
+  const outStream = new MediaStream();
+  const addTrack = (t: MediaStreamTrack | null | undefined) => {
+    if (t && !outStream.getTracks().includes(t)) outStream.addTrack(t);
+  };
+
   pc.ontrack = (e) => {
-    // Some browsers/answers don't associate a MediaStream with the track;
-    // wrap the track so the video element always gets a srcObject.
-    video.srcObject = e.streams[0] ?? new MediaStream([e.track]);
+    e.streams[0]?.getTracks().forEach(addTrack);
+    addTrack(e.track);
+    video.srcObject = outStream;
     video.play().catch(() => {});
   };
 
