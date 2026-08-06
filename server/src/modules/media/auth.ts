@@ -51,23 +51,9 @@ export const mediaAuth = new Elysia().post('/api/media/auth', async ({ body, set
   set.status = 401;
   return 'Unauthorized';
 }, {
-  body: t.Object(
-    {
-      user: t.Optional(t.String()),
-      password: t.Optional(t.String()),
-      pass: t.Optional(t.String()),
-      token: t.Optional(t.String()),
-      ip: t.Optional(t.String()),
-      action: t.Optional(t.String()),
-      path: t.Optional(t.String()),
-      protocol: t.Optional(t.String()),
-      id: t.Optional(t.String()),
-      query: t.Optional(t.String()),
-      userAgent: t.Optional(t.String()),
-      apikey: t.Optional(t.String()),
-    },
-    { additionalProperties: true }
-  ),
+  // MediaMTX's payload is flat JSON but some fields can be null (e.g. `id`).
+  // Accept anything and read defensively.
+  body: t.Any()
 });
 
 const keyFromQuery = (query: string): string | null =>

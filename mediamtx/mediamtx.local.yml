@@ -45,4 +45,5 @@ authInternalUsers:
 # Dynamic paths: any path can be created on first publish (auth still enforced).
 paths:
   all_others: {}
-hlsVariant: mpegts
+# fMP4 carries VP8/Opus (WebRTC) and H264/AAC (RTMP) in HLS; MPEG-TS cannot.
+hlsVariant: fmp4

@@ -17,6 +17,8 @@ srt: yes
 srtAddress: :8890
 hls: yes
 hlsAddress: :8888
+# fMP4 carries VP8/Opus (WebRTC) and H264/AAC (RTMP) in HLS; MPEG-TS cannot.
+hlsVariant: fmp4
 # Our backend proxy presents this secret to disable the HLS session/cookie check.
 hlsCDNSecret: change-me-mediamtx-key
 webrtc: yes

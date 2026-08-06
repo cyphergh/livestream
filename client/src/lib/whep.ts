@@ -13,6 +13,22 @@ export async function attachWhep(
   const offer = await pc.createOffer();
   await pc.setLocalDescription(offer);
 
+  // Register the track handler BEFORE processing the answer so we never miss a
+  // track event that fires while the remote description is being applied.
+  // MediaMTX answers don't include a=msid, so ontrack fires once per track with
+  // an empty `streams` array. Accumulate every track into ONE MediaStream; if we
+  // reassigned srcObject per track, the last track (audio) would silently drop video.
+  const outStream = new MediaStream();
+  const addTrack = (t: MediaStreamTrack | null | undefined) => {
+    if (t && !outStream.getTracks().includes(t)) outStream.addTrack(t);
+  };
+  pc.ontrack = (e) => {
+    e.streams[0]?.getTracks().forEach(addTrack);
+    addTrack(e.track);
+    video.srcObject = outStream;
+    video.play().catch(() => {});
+  };
+
   const res = await fetch(whepUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/sdp' },
@@ -23,21 +39,6 @@ export async function attachWhep(
   const answer = await res.text();
   await pc.setRemoteDescription({ type: 'answer', sdp: answer });
   const resource = res.headers.get('Location') ?? whepUrl;
-
-  // MediaMTX answers don't include a=msid, so ontrack fires once per track with
-  // an empty `streams` array. Accumulate every track into ONE MediaStream; if we
-  // reassigned srcObject per track, the last track (audio) would silently drop video.
-  const outStream = new MediaStream();
-  const addTrack = (t: MediaStreamTrack | null | undefined) => {
-    if (t && !outStream.getTracks().includes(t)) outStream.addTrack(t);
-  };
-
-  pc.ontrack = (e) => {
-    e.streams[0]?.getTracks().forEach(addTrack);
-    addTrack(e.track);
-    video.srcObject = outStream;
-    video.play().catch(() => {});
-  };
 
   pc.onicecandidate = (e) => {
     if (e.candidate) {
