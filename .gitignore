@@ -7,6 +7,9 @@ build/
 .DS_Store
 .coverage/
 
+# Uploaded media (logos, images)
+server/uploads/
+
 # MediaMTX auto-generated self-signed certs (WebRTC/WHEP/WHIP)
 auto.crt
 auto.key

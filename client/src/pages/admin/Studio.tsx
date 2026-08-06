@@ -118,6 +118,33 @@ export default function Studio() {
       .catch(() => {});
   }
 
+  const [logoUrlDraft, setLogoUrlDraft] = useState('');
+  const [logoBusy, setLogoBusy] = useState(false);
+
+  // Change the channel logo. Uploaded files are stored on disk; the server
+  // deletes the previous uploaded logo before saving the new one.
+  async function changeLogo(file: File) {
+    if (!channel) return;
+    setLogoBusy(true);
+    try {
+      const res = await http.upload<{ url: string }>('/uploads/logo', file);
+      await saveLogo(res.url);
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : 'Logo upload failed');
+    } finally {
+      setLogoBusy(false);
+    }
+  }
+
+  async function saveLogo(url: string | null) {
+    if (!channel) return;
+    const res = await http.patch<{ channel: Channel }>(`/admin/channels/${channel.id}`, {
+      logoUrl: url,
+    });
+    setChannel(res.channel);
+    setLogoUrlDraft('');
+  }
+
   return (
     <div>
       <Link to="/admin" className="mb-4 inline-block text-sm text-brand-600">
@@ -205,6 +232,69 @@ export default function Studio() {
           <div className="rounded-xl bg-zinc-900 p-4">
             <h2 className="mb-2 font-semibold">Go live from browser</h2>
             <p className="text-sm text-zinc-500">Uses WebRTC (WHIP) — no external software needed.</p>
+          </div>
+
+          <div className="rounded-xl bg-zinc-900 p-4">
+            <h2 className="mb-3 font-semibold">Channel logo</h2>
+            {channel ? (
+              <div className="space-y-3 text-sm">
+                <div className="flex items-center gap-3">
+                  {channel.logoUrl ? (
+                    <img
+                      src={channel.logoUrl}
+                      alt="Channel logo"
+                      className="h-16 w-16 rounded-xl object-cover ring-1 ring-white/10"
+                    />
+                  ) : (
+                    <div className="flex h-16 w-16 items-center justify-center rounded-xl border border-dashed border-white/20 bg-black/30 text-xs text-zinc-500">
+                      No logo
+                    </div>
+                  )}
+                  <div className="flex flex-col gap-1.5">
+                    <label className="cursor-pointer rounded-lg bg-zinc-700 px-3 py-1.5 text-center text-sm font-medium hover:bg-zinc-600">
+                      {logoBusy ? 'Uploading…' : 'Change logo'}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        disabled={logoBusy}
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f) changeLogo(f);
+                          e.target.value = '';
+                        }}
+                      />
+                    </label>
+                    {channel.logoUrl && (
+                      <button
+                        onClick={() => saveLogo(null)}
+                        className="rounded-lg border border-zinc-700 px-3 py-1.5 text-sm text-zinc-300 hover:bg-zinc-800"
+                      >
+                        Remove logo
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <input
+                    value={logoUrlDraft}
+                    onChange={(e) => setLogoUrlDraft(e.target.value)}
+                    placeholder="…or paste an image URL"
+                    className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-2 py-1 text-sm"
+                  />
+                  <button
+                    onClick={() => logoUrlDraft.trim() && saveLogo(logoUrlDraft.trim())}
+                    disabled={!logoUrlDraft.trim()}
+                    className="shrink-0 rounded-lg bg-zinc-700 px-3 py-1 text-sm font-medium hover:bg-zinc-600 disabled:opacity-50"
+                  >
+                    Set
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-zinc-500">Loading…</p>
+            )}
           </div>
 
           <div className="rounded-xl bg-zinc-900 p-4">

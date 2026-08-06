@@ -8,6 +8,7 @@ import { whip } from './modules/media/whip';
 import { hlsProxy } from './modules/media/hls';
 import { ingest } from './modules/ingest/ingest';
 import { realtime } from './modules/realtime';
+import { uploads, uploadsStatic } from './modules/uploads';
 
 export const app = new Elysia()
   .use(
@@ -17,6 +18,7 @@ export const app = new Elysia()
     })
   )
   .get('/health', () => ({ status: 'ok', uptime: process.uptime() }))
+  .use(uploadsStatic)
   .use(auth)
   .use(mediaAuth)
   .use(whip)
@@ -25,6 +27,7 @@ export const app = new Elysia()
   .use(adminChannels)
   .use(ingest)
   .use(realtime)
+  .use(uploads)
   .onError(({ code, error, set }) => {
     const message = error instanceof Error ? error.message : String(error);
     if (code === 'NOT_FOUND') {

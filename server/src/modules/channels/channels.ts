@@ -5,6 +5,7 @@ import { isProducer } from '../../lib/auth';
 import { jwtPlugin } from '../../lib/jwt-plugin';
 import { resolveUser } from '../../lib/user';
 import { slugify } from '../../lib/slug';
+import { deleteUploadedFile } from '../../lib/uploads';
 import { publishOverlay } from '../realtime';
 
 const serializeChannel = async (c: any) => {
@@ -43,17 +44,29 @@ const serializeOverlay = (o: any) => ({
 });
 
 export const publicChannels = new Elysia({ prefix: '/api/channels' })
-  .get('/', async () => {
+  .use(jwtPlugin())
+  .derive(async (ctx) => {
+    // Optional viewer: anonymous visitors (or a stale/bad token) see only
+    // free-to-air stations; signed-in users see every public channel.
+    let viewer;
+    try {
+      viewer = await resolveUser(ctx);
+    } catch {
+      viewer = undefined;
+    }
+    return { viewer };
+  })
+  .get('/', async ({ viewer }) => {
     const channels = await prisma.channel.findMany({
-      where: { visibility: 'PUBLIC' },
+      where: { visibility: 'PUBLIC', ...(viewer ? {} : { accessType: 'FREE' }) },
       orderBy: { createdAt: 'asc' },
       include: { overlay: true },
     });
     return { items: await Promise.all(channels.map(serializeChannel)) };
   })
-  .get('/:slug', async ({ params, set }) => {
+  .get('/:slug', async ({ params, viewer, set }) => {
     const c = await prisma.channel.findUnique({ where: { slug: params.slug }, include: { overlay: true } });
-    if (!c || c.visibility !== 'PUBLIC') {
+    if (!c || c.visibility !== 'PUBLIC' || (!viewer && c.accessType === 'SUBSCRIPTION')) {
       set.status = 404;
       return { message: 'Channel not found' };
     }
@@ -97,7 +110,7 @@ export const adminChannels = new Elysia({ prefix: '/api/admin/channels' })
           type: body.type,
           visibility: body.visibility,
           accessType: body.accessType,
-          logoUrl: body.logoUrl,
+          logoUrl: body.logoUrl ?? null,
           ownerId: user!.id,
         },
       });
@@ -120,7 +133,7 @@ export const adminChannels = new Elysia({ prefix: '/api/admin/channels' })
         type: t.Enum({ RADIO: 'RADIO', TV: 'TV' }),
         visibility: t.Optional(t.Enum({ PUBLIC: 'PUBLIC', PRIVATE: 'PRIVATE' })),
         accessType: t.Optional(t.Enum({ FREE: 'FREE', SUBSCRIPTION: 'SUBSCRIPTION' })),
-        logoUrl: t.Optional(t.String()),
+        logoUrl: t.Optional(t.Nullable(t.String())),
       }),
     }
   )
@@ -136,11 +149,16 @@ export const adminChannels = new Elysia({ prefix: '/api/admin/channels' })
         set.status = 403;
         return { message: 'Forbidden' };
       }
+      const previousLogo = c.logoUrl;
       const updated = await prisma.channel.update({
         where: { id: c.id },
         data: { ...body },
         include: { overlay: true },
       });
+      // Replacing or removing the logo: drop the old uploaded file to save space.
+      if (body.logoUrl !== undefined && body.logoUrl !== previousLogo) {
+        await deleteUploadedFile(previousLogo);
+      }
       return { channel: await serializeChannel(updated) };
     },
     {
@@ -149,7 +167,8 @@ export const adminChannels = new Elysia({ prefix: '/api/admin/channels' })
         description: t.Optional(t.String()),
         type: t.Optional(t.Enum({ RADIO: 'RADIO', TV: 'TV' })),
         visibility: t.Optional(t.Enum({ PUBLIC: 'PUBLIC', PRIVATE: 'PRIVATE' })),
-        logoUrl: t.Optional(t.String()),
+        accessType: t.Optional(t.Enum({ FREE: 'FREE', SUBSCRIPTION: 'SUBSCRIPTION' })),
+        logoUrl: t.Optional(t.Nullable(t.String())),
         coverUrl: t.Optional(t.String()),
       }),
     }
@@ -165,6 +184,7 @@ export const adminChannels = new Elysia({ prefix: '/api/admin/channels' })
       return { message: 'Forbidden' };
     }
     await mediaServer.deletePath(c.id).catch(() => {});
+    await deleteUploadedFile(c.logoUrl);
     await prisma.channel.delete({ where: { id: c.id } });
     return { ok: true };
   })

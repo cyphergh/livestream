@@ -50,4 +50,21 @@ export const http = {
   put: <T>(path: string, body: unknown) =>
     apiFetch<T>(path, { method: 'PUT', body: JSON.stringify(body) }),
   del: <T>(path: string) => apiFetch<T>(path, { method: 'DELETE' }),
+  // Multipart file upload (do NOT set Content-Type; the browser adds the boundary).
+  upload: async <T>(path: string, file: File) => {
+    const accessToken = useAuthStore.getState().accessToken;
+    const form = new FormData();
+    form.append('file', file);
+    const res = await fetch(`${API}${path}`, {
+      method: 'POST',
+      body: form,
+      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+      credentials: 'include',
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => null);
+      throw new ApiError(res.status, data?.message ?? `Upload failed (${res.status})`);
+    }
+    return res.json() as Promise<T>;
+  },
 };

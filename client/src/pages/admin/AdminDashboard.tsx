@@ -175,7 +175,8 @@ function CreateChannelModal({
   const [type, setType] = useState<ChannelType>('TV');
   const [accessType, setAccessType] = useState<AccessType>('FREE');
   const [logoUrl, setLogoUrl] = useState('');
-  const [logoData, setLogoData] = useState<string | null>(null);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -183,8 +184,9 @@ function CreateChannelModal({
     if (!file) return;
     const reader = new FileReader();
     reader.onload = () => {
-      setLogoData(reader.result as string);
+      setLogoPreview(reader.result as string);
       setLogoUrl('');
+      setLogoFile(file);
     };
     reader.readAsDataURL(file);
   };
@@ -197,11 +199,16 @@ function CreateChannelModal({
     setSaving(true);
     setError(null);
     try {
+      let finalLogo: string | undefined = logoUrl.trim() || undefined;
+      if (logoFile) {
+        const res = await http.upload<{ url: string }>('/uploads/logo', logoFile);
+        finalLogo = res.url;
+      }
       await http.post('/admin/channels', {
         name: name.trim(),
         type,
         accessType: type === 'TV' ? accessType : undefined,
-        logoUrl: logoData ?? (logoUrl.trim() || undefined),
+        logoUrl: finalLogo,
       });
       onCreated();
       onClose();
@@ -256,8 +263,8 @@ function CreateChannelModal({
             <span className={label}>Logo</span>
             <div className="flex items-center gap-3">
               <label className="flex h-16 w-16 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-xl border border-dashed border-white/20 bg-black/30">
-                {logoData ? (
-                  <img src={logoData} alt="logo" className="h-full w-full object-cover" />
+                {logoPreview ? (
+                  <img src={logoPreview} alt="logo" className="h-full w-full object-cover" />
                 ) : (
                   <span className="text-xs text-zinc-500">Upload</span>
                 )}
@@ -267,7 +274,10 @@ function CreateChannelModal({
                 value={logoUrl}
                 onChange={(e) => {
                   setLogoUrl(e.target.value);
-                  if (e.target.value) setLogoData(null);
+                  if (e.target.value) {
+                    setLogoFile(null);
+                    setLogoPreview(null);
+                  }
                 }}
                 placeholder="…or paste an image URL"
                 className={input}
