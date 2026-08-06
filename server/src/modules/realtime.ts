@@ -58,6 +58,11 @@ export const realtime = new Elysia()
     poll();
   });
 
+// Push an updated ticker config to everyone watching a channel (real-time marquee).
+export function publishTicker(channelId: string, ticker: unknown) {
+  broadcast({ type: 'channel:ticker', id: channelId, ticker });
+}
+
 export function stopRealtime() {
   if (timer) clearInterval(timer);
   timer = null;

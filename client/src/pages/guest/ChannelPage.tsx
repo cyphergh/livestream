@@ -1,16 +1,26 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import Hls from 'hls.js';
 import { http } from '../../lib/api';
 import { attachWhep } from '../../lib/whep';
 import { useLiveStore } from '../../stores/liveStore';
-import type { Channel } from '../../types';
+import type { Channel, Ticker } from '../../types';
 
 function TvPlayer({ channel }: { channel: Channel }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [mode, setMode] = useState<'whep' | 'hls' | 'idle'>('idle');
   const [status, setStatus] = useState('Connecting…');
   const [error, setError] = useState<string | null>(null);
+  const [muted, setMuted] = useState(true);
+
+  // Browsers block autoplay with sound: start muted, then unmute on first tap.
+  const handleTap = () => {
+    const video = videoRef.current;
+    if (!video) return;
+    video.muted = false;
+    setMuted(false);
+    video.play().catch(() => {});
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -89,7 +99,26 @@ function TvPlayer({ channel }: { channel: Channel }) {
 
   return (
     <>
-      <video ref={videoRef} controls autoPlay muted playsInline className="h-full w-full" />
+      <video
+        ref={videoRef}
+        controls
+        autoPlay
+        muted={muted}
+        playsInline
+        onClick={handleTap}
+        className="h-full w-full"
+      />
+      {muted && (
+        <button
+          type="button"
+          onClick={handleTap}
+          className="absolute inset-0 flex cursor-pointer items-center justify-center bg-black/40"
+        >
+          <span className="rounded-full bg-zinc-900/80 px-4 py-2 text-sm text-white">
+            Tap for sound
+          </span>
+        </button>
+      )}
       {status && (
         <div className="absolute right-2 top-2 rounded bg-black/60 px-2 py-0.5 text-xs text-white">
           {mode === 'whep' ? 'LIVE (WebRTC)' : status}
@@ -109,12 +138,52 @@ function Overlay({ text }: { text: string }) {
   );
 }
 
+// Scrolling marquee rendered over the video. Re-renders live whenever the
+// admin saves new ticker settings (pushed over the WebSocket).
+function TickerMarquee({ ticker }: { ticker: Ticker }) {
+  const trackRef = useRef<HTMLDivElement>(null);
+  const [dur, setDur] = useState(20);
+
+  useEffect(() => {
+    const track = trackRef.current;
+    if (!track) return;
+    const width = track.offsetWidth / 2; // two copies, half is one text pass
+    setDur(Math.max(4, width / Math.max(1, ticker.speed)));
+  }, [ticker.text, ticker.fontSize, ticker.speed]);
+
+  const style: CSSProperties = {
+    fontSize: `${ticker.fontSize}px`,
+    color: ticker.color,
+    backgroundColor: ticker.bgColor,
+    opacity: ticker.opacity,
+  };
+
+  return (
+    <div
+      className={`pointer-events-none absolute inset-x-0 overflow-hidden py-1.5 ${
+        ticker.position === 'top' ? 'top-0' : 'bottom-0'
+      }`}
+      style={style}
+    >
+      <div
+        ref={trackRef}
+        className="inline-flex whitespace-nowrap will-change-transform"
+        style={{ animation: `marquee ${dur}s linear infinite` }}
+      >
+        <span className="px-6 font-semibold">{ticker.text}</span>
+        <span className="px-6 font-semibold">{ticker.text}</span>
+      </div>
+    </div>
+  );
+}
+
 export default function ChannelPage() {
   const { slug } = useParams();
   const [channel, setChannel] = useState<Channel | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const liveMap = useLiveStore((s) => s.live);
+  const tickers = useLiveStore((s) => s.tickers);
   const connect = useLiveStore((s) => s.connect);
 
   useEffect(() => {
@@ -140,6 +209,10 @@ export default function ChannelPage() {
   if (error || !channel)
     return <div className="mx-auto max-w-4xl px-4 py-8 text-zinc-400">{error ?? 'Not found'}</div>;
 
+  // Real-time ticker: prefer the live-WebSocket copy so admin edits apply
+  // instantly, falling back to the value baked into the channel fetch.
+  const ticker = tickers[channel.id] ?? channel.ticker ?? null;
+
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
       <Link to="/" className="mb-4 inline-block text-sm text-brand-600">
@@ -159,6 +232,7 @@ export default function ChannelPage() {
       {channel.type === 'TV' ? (
         <div className="relative aspect-video overflow-hidden rounded-xl bg-black">
           <TvPlayer channel={channel} />
+          {channel.live && ticker && ticker.enabled && <TickerMarquee ticker={ticker} />}
         </div>
       ) : (
         <div className="rounded-xl bg-zinc-900 p-6">

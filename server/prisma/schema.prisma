@@ -71,6 +71,7 @@ model Channel {
   restreams     RestreamTarget[]
   pullSources   PullSource[]
   chatMessages  ChatMessage[]
+  ticker        Ticker?
 
   @@index([ownerId])
 }
@@ -152,4 +153,21 @@ model ChatMessage {
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([channelId, createdAt])
+}
+
+model Ticker {
+  id        String  @id @default(cuid())
+  channelId String  @unique
+  channel   Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  enabled   Boolean @default(false)
+  text      String  @default("")
+  // Style settings rendered by viewers as a scrolling marquee.
+  opacity   Float   @default(0.85) // 0..1
+  position  String  @default("bottom") // bottom | top
+  fontSize  Int     @default(28)
+  color     String  @default("#ffffff")
+  bgColor   String  @default("rgba(0,0,0,0.55)")
+  speed     Int     @default(12) // px/s scroll speed
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

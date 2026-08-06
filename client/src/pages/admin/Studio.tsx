@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { http } from '../../lib/api';
 import { useAuthStore } from '../../stores/authStore';
 import { startWhip, type WhipSession } from '../../lib/whip';
-import type { Channel } from '../../types';
+import type { Channel, Ticker } from '../../types';
 
 interface IngestInfo {
   rtmp: { url: string; streamKey: string | null };
@@ -24,6 +24,8 @@ export default function Studio() {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deviceType, setDeviceType] = useState<'radiio' | 'tv'>('tv');
+  const [ticker, setTicker] = useState<Ticker | null>(null);
+  const [tickerLoading, setTickerLoading] = useState(false);
 
   const previewRef = useRef<HTMLVideoElement>(null);
 
@@ -39,6 +41,17 @@ export default function Studio() {
       .get<IngestInfo>(`/admin/channels/${channel.id}/ingest`)
       .then(setIngest)
       .catch(() => {});
+  }, [channel]);
+
+  // Load the saved ticker config for this channel.
+  useEffect(() => {
+    if (!channel) return;
+    setTickerLoading(true);
+    http
+      .get<{ ticker: Ticker | null }>(`/admin/channels/${channel.id}/ticker`)
+      .then((d) => setTicker(d.ticker))
+      .catch(() => {})
+      .finally(() => setTickerLoading(false));
   }, [channel]);
 
   // Preferred media type = the channel's type.
@@ -93,6 +106,17 @@ export default function Studio() {
   }
 
   const live = ingest?.live || !!whip;
+
+  // Persist ticker settings; the server broadcasts the new config over the
+  // WebSocket so viewers see the change immediately, no reload needed.
+  async function saveTicker(next: Ticker) {
+    if (!channel) return;
+    setTicker(next);
+    await http
+      .put<{ ticker: Ticker }>(`/admin/channels/${channel.id}/ticker`, next)
+      .then((d) => setTicker(d.ticker))
+      .catch(() => {});
+  }
 
   return (
     <div>
@@ -182,7 +206,176 @@ export default function Studio() {
             <h2 className="mb-2 font-semibold">Go live from browser</h2>
             <p className="text-sm text-zinc-500">Uses WebRTC (WHIP) — no external software needed.</p>
           </div>
+
+          <div className="rounded-xl bg-zinc-900 p-4">
+            <h2 className="mb-3 font-semibold">Scrolling ticker</h2>
+            {tickerLoading ? (
+              <p className="text-sm text-zinc-500">Loading…</p>
+            ) : ticker ? (
+              <TickerSettings ticker={ticker} onSave={saveTicker} />
+            ) : (
+              <p className="text-sm text-zinc-500">No ticker configured.</p>
+            )}
+          </div>
         </section>
+      </div>
+    </div>
+  );
+}
+
+function TickerSettings({
+  ticker,
+  onSave,
+}: {
+  ticker: Ticker;
+  onSave: (next: Ticker) => void;
+}) {
+  const [draft, setDraft] = useState<Ticker>(ticker);
+  const [savedAt, setSavedAt] = useState<number>(0);
+
+  useEffect(() => setDraft(ticker), [ticker]);
+
+  const set = (patch: Partial<Ticker>) => setDraft((d) => ({ ...d, ...patch }));
+
+  // Save on every change — debounced slightly so slider drags don't spam.
+  useEffect(() => {
+    if (JSON.stringify(draft) === JSON.stringify(ticker)) return;
+    const id = setTimeout(() => {
+      onSave(draft);
+      setSavedAt(Date.now());
+    }, 400);
+    return () => clearTimeout(id);
+  }, [draft, ticker, onSave]);
+
+  const label = 'text-xs font-medium text-zinc-400';
+  const input = 'w-full rounded-lg border border-zinc-700 bg-zinc-800 px-2 py-1 text-sm';
+  const row = 'flex flex-col gap-1';
+
+  return (
+    <div className="space-y-3 text-sm">
+      <label className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          checked={draft.enabled}
+          onChange={(e) => set({ enabled: e.target.checked })}
+          className="h-4 w-4 accent-brand-600"
+        />
+        <span className={label}>Show ticker on the channel</span>
+      </label>
+
+      <label className={row}>
+        <span className={label}>Ticker text</span>
+        <textarea
+          value={draft.text}
+          onChange={(e) => set({ text: e.target.value })}
+          rows={2}
+          className={input}
+        />
+      </label>
+
+      <div className="grid grid-cols-2 gap-3">
+        <label className={row}>
+          <span className={label}>Position</span>
+          <select
+            value={draft.position}
+            onChange={(e) => set({ position: e.target.value as Ticker['position'] })}
+            className={input}
+          >
+            <option value="bottom">Bottom</option>
+            <option value="top">Top</option>
+          </select>
+        </label>
+        <label className={row}>
+          <span className={label}>
+            Speed: <span className="text-zinc-200">{draft.speed} px/s</span>
+          </span>
+          <input
+            type="range"
+            min={1}
+            max={100}
+            value={draft.speed}
+            onChange={(e) => set({ speed: Number(e.target.value) })}
+            className="w-full accent-brand-600"
+          />
+        </label>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <label className={row}>
+          <span className={label}>
+            Opacity: <span className="text-zinc-200">{Math.round(draft.opacity * 100)}%</span>
+          </span>
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.05}
+            value={draft.opacity}
+            onChange={(e) => set({ opacity: Number(e.target.value) })}
+            className="w-full accent-brand-600"
+          />
+        </label>
+        <label className={row}>
+          <span className={label}>Font size</span>
+          <input
+            type="number"
+            min={8}
+            max={120}
+            value={draft.fontSize}
+            onChange={(e) => set({ fontSize: Number(e.target.value) })}
+            className={input}
+          />
+        </label>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <label className={row}>
+          <span className={label}>Text color</span>
+          <input
+            type="color"
+            value={draft.color}
+            onChange={(e) => set({ color: e.target.value })}
+            className="h-9 w-full cursor-pointer rounded-lg border border-zinc-700 bg-zinc-800"
+          />
+        </label>
+        <label className={row}>
+          <span className={label}>Bar background</span>
+          <input
+            type="color"
+            value={draft.bgColor.startsWith('#') ? draft.bgColor : '#000000'}
+            onChange={(e) => set({ bgColor: e.target.value + '8c' })}
+            className="h-9 w-full cursor-pointer rounded-lg border border-zinc-700 bg-zinc-800"
+          />
+        </label>
+      </div>
+
+      <div className="relative aspect-video overflow-hidden rounded-lg bg-black">
+        <div className="absolute inset-0 bg-gradient-to-br from-zinc-800 to-zinc-900" />
+        <TickerPreview ticker={draft} />
+      </div>
+
+      {savedAt > 0 && <p className="text-xs text-emerald-500">Saved</p>}
+    </div>
+  );
+}
+
+function TickerPreview({ ticker }: { ticker: Ticker }) {
+  const style: CSSProperties = {
+    fontSize: `${Math.max(10, Math.min(40, ticker.fontSize))}px`,
+    color: ticker.color,
+    backgroundColor: ticker.bgColor,
+    opacity: ticker.opacity,
+  };
+  return (
+    <div
+      className={`pointer-events-none absolute inset-x-0 overflow-hidden py-1.5 ${
+        ticker.position === 'top' ? 'top-0' : 'bottom-0'
+      }`}
+      style={style}
+    >
+      <div className="inline-flex whitespace-nowrap" style={{ animation: `marquee 12s linear infinite` }}>
+        <span className="px-6 font-semibold">{ticker.text || 'Ticker preview'}</span>
+        <span className="px-6 font-semibold">{ticker.text || 'Ticker preview'}</span>
       </div>
     </div>
   );

@@ -24,6 +24,18 @@ export interface Channel {
   hls?: string | null;
   whep?: string | null;
   programs?: Program[];
+  ticker?: Ticker | null;
+}
+
+export interface Ticker {
+  enabled: boolean;
+  text: string;
+  opacity: number;
+  position: 'bottom' | 'top';
+  fontSize: number;
+  color: string;
+  bgColor: string;
+  speed: number;
 }
 
 export interface Program {

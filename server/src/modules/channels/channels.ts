@@ -5,6 +5,7 @@ import { isProducer } from '../../lib/auth';
 import { jwtPlugin } from '../../lib/jwt-plugin';
 import { resolveUser } from '../../lib/user';
 import { slugify } from '../../lib/slug';
+import { publishTicker } from '../realtime';
 
 const serializeChannel = async (c: any) => {
   const live = await mediaServer.isLive(c.id);
@@ -20,19 +21,32 @@ const serializeChannel = async (c: any) => {
     live,
     hls: live ? hlsUrl(c.id) : null,
     whep: live ? whepUrl(c.id) : null,
+    ticker: c.ticker?.enabled ? serializeTicker(c.ticker) : null,
   };
 };
+
+const serializeTicker = (t: any) => ({
+  enabled: t.enabled,
+  text: t.text,
+  opacity: t.opacity,
+  position: t.position,
+  fontSize: t.fontSize,
+  color: t.color,
+  bgColor: t.bgColor,
+  speed: t.speed,
+});
 
 export const publicChannels = new Elysia({ prefix: '/api/channels' })
   .get('/', async () => {
     const channels = await prisma.channel.findMany({
       where: { visibility: 'PUBLIC' },
       orderBy: { createdAt: 'asc' },
+      include: { ticker: true },
     });
     return { items: await Promise.all(channels.map(serializeChannel)) };
   })
   .get('/:slug', async ({ params, set }) => {
-    const c = await prisma.channel.findUnique({ where: { slug: params.slug } });
+    const c = await prisma.channel.findUnique({ where: { slug: params.slug }, include: { ticker: true } });
     if (!c || c.visibility !== 'PUBLIC') {
       set.status = 404;
       return { message: 'Channel not found' };
@@ -54,7 +68,7 @@ export const adminChannels = new Elysia({ prefix: '/api/admin/channels' })
       return { message: 'Forbidden' };
     }
     const where = user!.role === 'ADMIN' ? {} : { ownerId: user!.id };
-    const channels = await prisma.channel.findMany({ where, orderBy: { createdAt: 'asc' } });
+    const channels = await prisma.channel.findMany({ where, orderBy: { createdAt: 'asc' }, include: { ticker: true } });
     return { items: await Promise.all(channels.map(serializeChannel)) };
   })
   .post(
@@ -112,7 +126,11 @@ export const adminChannels = new Elysia({ prefix: '/api/admin/channels' })
         set.status = 403;
         return { message: 'Forbidden' };
       }
-      const updated = await prisma.channel.update({ where: { id: c.id }, data: { ...body } });
+      const updated = await prisma.channel.update({
+        where: { id: c.id },
+        data: { ...body },
+        include: { ticker: true },
+      });
       return { channel: await serializeChannel(updated) };
     },
     {
@@ -139,4 +157,51 @@ export const adminChannels = new Elysia({ prefix: '/api/admin/channels' })
     await mediaServer.deletePath(c.id).catch(() => {});
     await prisma.channel.delete({ where: { id: c.id } });
     return { ok: true };
-  });
+  })
+  // Scrolling ticker/marquee config (rendered over the video for viewers).
+  .get('/:id/ticker', async ({ params, user, set }) => {
+    if (!isProducer(user)) {
+      set.status = 403;
+      return { message: 'Forbidden' };
+    }
+    const c = await prisma.channel.findUnique({ where: { id: params.id }, include: { ticker: true } });
+    if (!c || (user!.role !== 'ADMIN' && c.ownerId !== user!.id)) {
+      set.status = 403;
+      return { message: 'Forbidden' };
+    }
+    return { ticker: c.ticker ? serializeTicker(c.ticker) : null };
+  })
+  .put(
+    '/:id/ticker',
+    async ({ params, body, user, set }) => {
+      if (!isProducer(user)) {
+        set.status = 403;
+        return { message: 'Forbidden' };
+      }
+      const c = await prisma.channel.findUnique({ where: { id: params.id } });
+      if (!c || (user!.role !== 'ADMIN' && c.ownerId !== user!.id)) {
+        set.status = 403;
+        return { message: 'Forbidden' };
+      }
+      const ticker = await prisma.ticker.upsert({
+        where: { channelId: c.id },
+        update: { ...body, text: body.text ?? '' },
+        create: { channelId: c.id, ...body, text: body.text ?? '' },
+      });
+      const serialized = serializeTicker(ticker);
+      publishTicker(c.id, serialized);
+      return { ticker: serialized };
+    },
+    {
+      body: t.Object({
+        enabled: t.Optional(t.Boolean()),
+        text: t.Optional(t.String()),
+        opacity: t.Optional(t.Number({ minimum: 0, maximum: 1 })),
+        position: t.Optional(t.Enum({ bottom: 'bottom', top: 'top' })),
+        fontSize: t.Optional(t.Number({ minimum: 8, maximum: 120 })),
+        color: t.Optional(t.String()),
+        bgColor: t.Optional(t.String()),
+        speed: t.Optional(t.Number({ minimum: 1, maximum: 200 })),
+      }),
+    }
+  );
