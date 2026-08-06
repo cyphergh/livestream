@@ -1,77 +1,87 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { http } from '../../lib/api';
-import type { Channel } from '../../types';
-
-interface Row {
-  id: string;
-  name: string;
-  type: Channel['type'];
-  programs: { title: string; startsAt: Date; endsAt: Date }[];
-}
+import { useLiveStore } from '../../stores/liveStore';
+import type { GuideRow } from '../../types';
 
 export default function EPG() {
-  const [rows, setRows] = useState<Row[]>([]);
+  const [rows, setRows] = useState<GuideRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const programs = useLiveStore((s) => s.programs);
+  const connect = useLiveStore((s) => s.connect);
 
-  useEffect(() => {
+  const load = () =>
     http
-      .get<{ items: Channel[] }>('/channels')
-      .then(({ items }) =>
-        Promise.all(
-          items.map(async (c) => {
-            const full = c.hls
-              ? await http.get<Channel>(`/channels/${c.slug}`).catch(() => c)
-              : await http.get<Channel>(`/channels/${c.slug}`).catch(() => c);
-            return {
-              id: c.id,
-              name: c.name,
-              type: c.type,
-              programs: (full.programs ?? []).map((p) => ({
-                title: p.title,
-                startsAt: new Date(p.startsAt),
-                endsAt: new Date(p.endsAt),
-              })),
-            };
-          })
-        )
-      )
-      .then(setRows);
-  }, []);
+      .get<{ items: GuideRow[] }>('/guide')
+      .then((d) => setRows(d.items))
+      .finally(() => setLoading(false));
+
+  // Re-fetch whenever an admin adds/edits/deletes any program so the guide
+  // stays in sync in real time.
+  useEffect(() => {
+    connect();
+    load();
+  }, [programs, connect]);
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-8">
+    <div className="mx-auto max-w-5xl px-4 py-8">
       <Link to="/" className="mb-4 inline-block text-sm text-brand-600">
         ← Home
       </Link>
       <h1 className="mb-6 text-2xl font-bold">Electronic Program Guide</h1>
-      <div className="overflow-x-auto rounded-xl bg-zinc-900">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-zinc-800 text-left text-zinc-400">
-              <th className="p-3 font-medium">Channel</th>
-              <th className="p-3 font-medium">Program</th>
-              <th className="p-3 font-medium">Starts</th>
-              <th className="p-3 font-medium">Ends</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-zinc-800">
-            {rows.map((r) =>
-              r.programs.map((p, i) => (
-                <tr key={`${r.id}-${i}`}>
-                  <td className="p-3 font-medium">{r.name}</td>
-                  <td className="p-3">{p.title}</td>
-                  <td className="p-3 text-zinc-400">
-                    {p.startsAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </td>
-                  <td className="p-3 text-zinc-400">
-                    {p.endsAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </td>
-                </tr>
-              )),
-            )}
-          </tbody>
-        </table>
-      </div>
+
+      {loading ? (
+        <p className="text-zinc-500">Loading…</p>
+      ) : rows.length === 0 ? (
+        <p className="text-zinc-500">No guide available yet.</p>
+      ) : (
+        <div className="space-y-3">
+          {rows.map((r) => (
+            <Link
+              key={r.slug}
+              to={`/channel/${r.slug}`}
+              className="block rounded-2xl border border-zinc-800 bg-zinc-900 p-4 transition hover:border-brand-600/40"
+            >
+              <div className="mb-2 flex items-center gap-3">
+                {r.logoUrl ? (
+                  <img src={r.logoUrl} alt={r.name} className="h-9 w-9 rounded-lg object-cover" />
+                ) : (
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-zinc-700 text-xs font-bold">
+                    {r.name.charAt(0)}
+                  </div>
+                )}
+                <span className="font-semibold">{r.name}</span>
+                <span className="text-xs text-zinc-500">{r.type === 'TV' ? 'TV' : 'Radio'}</span>
+                {r.live && (
+                  <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-red-500/20 px-2 py-0.5 text-[11px] font-semibold text-red-300">
+                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-red-500" /> LIVE
+                  </span>
+                )}
+              </div>
+
+              {r.programs.length === 0 ? (
+                <p className="text-sm text-zinc-500">No programs today.</p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {r.programs.map((p) => (
+                    <div key={p.id} className="rounded-lg bg-zinc-800 px-3 py-1.5 text-sm">
+                      <span className="text-zinc-400">
+                        {new Date(p.startsAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ·
+                      </span>{' '}
+                      <span className="font-medium">{p.title}</span>
+                      {p.genre && (
+                        <span className="ml-1.5 rounded bg-zinc-700 px-1.5 py-0.5 text-[10px] text-zinc-300">
+                          {p.genre}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Link>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -4,9 +4,9 @@ import { http } from '../../lib/api';
 import type { AccessType, Channel, ChannelType } from '../../types';
 
 const statCards = [
-  { key: 'total', label: 'Channels', accent: 'from-indigo-500 to-violet-500', icon: '📡' },
-  { key: 'live', label: 'Live now', accent: 'from-red-500 to-rose-500', icon: '🔴' },
-  { key: 'offline', label: 'Offline', accent: 'from-zinc-500 to-zinc-700', icon: '⏸' },
+  { key: 'total', label: 'Channels', chip: 'from-indigo-500 to-blue-500', icon: '📡' },
+  { key: 'live', label: 'Live now', chip: 'from-emerald-500 to-teal-500', icon: '●' },
+  { key: 'offline', label: 'Offline', chip: 'from-zinc-600 to-zinc-500', icon: '⏸' },
 ] as const;
 
 export default function AdminDashboard() {
@@ -41,16 +41,13 @@ export default function AdminDashboard() {
     <div className="relative">
       {/* cinematic ambience */}
       <div className="pointer-events-none fixed inset-0 -z-10">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,#4f46e5_0%,transparent_50%),radial-gradient(circle_at_bottom_left,#a855f7_0%,transparent_45%)]" />
-        <div className="absolute right-0 top-1/4 h-72 w-72 rounded-full bg-brand-600/20 blur-3xl" />
-        <div className="absolute bottom-0 left-1/4 h-72 w-72 rounded-full bg-fuchsia-600/15 blur-3xl" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(79,70,229,0.28)_0%,transparent_45%),radial-gradient(circle_at_85%_25%,rgba(34,211,238,0.14)_0%,transparent_45%),radial-gradient(circle_at_60%_95%,rgba(139,92,246,0.12)_0%,transparent_50%)]" />
       </div>
 
       <header className="mb-8">
         <p className="text-xs font-medium uppercase tracking-[0.3em] text-brand-400">Control room</p>
-        <h1 className="bg-gradient-to-r from-white to-zinc-400 bg-clip-text text-3xl font-bold text-transparent">
-          Broadcasting dashboard
-        </h1>
+        <h1 className="text-3xl font-bold text-white">Broadcasting dashboard</h1>
+        <p className="mt-1 text-sm text-zinc-400">Manage your stations, live streams and schedule.</p>
       </header>
 
       {/* stats */}
@@ -58,20 +55,17 @@ export default function AdminDashboard() {
         {statCards.map((s) => (
           <div
             key={s.key}
-            className="relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur"
+            className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-5 shadow-lg shadow-black/20"
           >
-            <div className={`absolute inset-x-0 top-0 h-px bg-gradient-to-r ${s.accent}`} />
-            <div className="mb-2 flex items-center justify-between">
-              <span className="text-3xl">{s.icon}</span>
-              <span className="text-xs text-zinc-400">{s.label}</span>
-            </div>
-            <div className="flex items-baseline gap-2">
+            <div className="mb-3 flex items-center justify-between">
               <span
-                className={`bg-gradient-to-r ${s.accent} bg-clip-text text-4xl font-bold text-transparent`}
+                className={`flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br ${s.chip} text-base text-white shadow-md`}
               >
-                {stats[s.key]}
+                {s.icon}
               </span>
+              <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">{s.label}</span>
             </div>
+            <div className="text-4xl font-bold text-white">{stats[s.key]}</div>
           </div>
         ))}
       </div>
@@ -80,7 +74,7 @@ export default function AdminDashboard() {
         <h2 className="font-semibold">Your stations</h2>
         <button
           onClick={() => setCreating(true)}
-          className="rounded-xl bg-gradient-to-r from-brand-600 to-fuchsia-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-brand-600/30 transition hover:brightness-110"
+          className="rounded-xl bg-gradient-to-r from-brand-600 to-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-brand-600/20 transition hover:brightness-110"
         >
           + New channel
         </button>
@@ -89,7 +83,7 @@ export default function AdminDashboard() {
       {loading ? (
         <p className="text-zinc-500">Loading…</p>
       ) : channels.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-white/15 bg-white/5 p-10 text-center text-zinc-400 backdrop-blur">
+        <div className="rounded-2xl border border-dashed border-zinc-700 bg-zinc-900/60 p-10 text-center text-zinc-400">
           No channels yet. Create your first TV or radio station.
         </div>
       ) : (
@@ -97,7 +91,7 @@ export default function AdminDashboard() {
           {channels.map((c) => (
             <div
               key={c.id}
-              className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur transition hover:border-brand-500/40 hover:shadow-xl hover:shadow-brand-600/10"
+              className="group relative overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/70 shadow-lg shadow-black/20 transition hover:border-brand-500/40 hover:shadow-xl"
             >
               <Link
                 to={`/admin/studio/${c.slug}`}
@@ -123,12 +117,12 @@ export default function AdminDashboard() {
                   </div>
                   <span
                     className={`ml-auto inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-                      c.live ? 'bg-red-500/20 text-red-300' : 'bg-zinc-700/50 text-zinc-300'
+                      c.live ? 'bg-emerald-500/15 text-emerald-300' : 'bg-zinc-800 text-zinc-400'
                     }`}
                   >
                     <span
                       className={`h-1.5 w-1.5 rounded-full ${
-                        c.live ? 'animate-pulse bg-red-500' : 'bg-zinc-500'
+                        c.live ? 'animate-pulse bg-emerald-400' : 'bg-zinc-600'
                       }`}
                     />
                     {c.live ? 'LIVE' : 'OFFLINE'}
@@ -136,7 +130,7 @@ export default function AdminDashboard() {
                 </div>
                 <div className="flex gap-2 text-[11px] text-zinc-400">
                   {c.type === 'TV' && (
-                    <span className="rounded-md bg-black/30 px-2 py-0.5">
+                    <span className="rounded-md bg-black/40 px-2 py-0.5">
                       {c.accessType === 'SUBSCRIPTION' ? '🔒 Subscription' : '📡 Free to air'}
                     </span>
                   )}
@@ -218,7 +212,7 @@ function CreateChannelModal({
     }
   };
 
-  const input = 'w-full rounded-lg border border-white/10 bg-black/30 px-3 py-1.5 text-sm';
+  const input = 'w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-sm placeholder-zinc-600';
   const label = 'mb-1 block text-xs font-medium text-zinc-400';
 
   return (
@@ -262,7 +256,7 @@ function CreateChannelModal({
           <label className="block">
             <span className={label}>Logo</span>
             <div className="flex items-center gap-3">
-              <label className="flex h-16 w-16 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-xl border border-dashed border-white/20 bg-black/30">
+              <label className="flex h-16 w-16 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-xl border border-dashed border-zinc-600 bg-zinc-800/60">
                 {logoPreview ? (
                   <img src={logoPreview} alt="logo" className="h-full w-full object-cover" />
                 ) : (
@@ -298,7 +292,7 @@ function CreateChannelModal({
             <button
               onClick={submit}
               disabled={saving}
-              className="rounded-lg bg-gradient-to-r from-brand-600 to-fuchsia-600 px-4 py-1.5 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-50"
+              className="rounded-lg bg-gradient-to-r from-brand-600 to-indigo-600 px-4 py-1.5 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-50"
             >
               {saving ? 'Creating…' : 'Create channel'}
             </button>

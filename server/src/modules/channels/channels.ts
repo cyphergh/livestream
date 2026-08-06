@@ -6,7 +6,7 @@ import { jwtPlugin } from '../../lib/jwt-plugin';
 import { resolveUser } from '../../lib/user';
 import { slugify } from '../../lib/slug';
 import { deleteUploadedFile } from '../../lib/uploads';
-import { publishOverlay } from '../realtime';
+import { publishOverlay, publishChannel } from '../realtime';
 
 const serializeChannel = async (c: any) => {
   const live = await mediaServer.isLive(c.id);
@@ -70,10 +70,13 @@ export const publicChannels = new Elysia({ prefix: '/api/channels' })
       set.status = 404;
       return { message: 'Channel not found' };
     }
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const endOfToday = new Date(startOfToday.getTime() + 86400000);
     const programs = await prisma.program.findMany({
-      where: { channelId: c.id, endsAt: { gte: new Date() } },
+      where: { channelId: c.id, startsAt: { lt: endOfToday }, endsAt: { gte: startOfToday } },
       orderBy: { startsAt: 'asc' },
-      take: 10,
+      take: 50,
     });
     return { ...(await serializeChannel(c)), programs };
   });
@@ -150,16 +153,24 @@ export const adminChannels = new Elysia({ prefix: '/api/admin/channels' })
         return { message: 'Forbidden' };
       }
       const previousLogo = c.logoUrl;
+      const previousCover = c.coverUrl;
       const updated = await prisma.channel.update({
         where: { id: c.id },
         data: { ...body },
         include: { overlay: true },
       });
+      const serialized = await serializeChannel(updated);
       // Replacing or removing the logo: drop the old uploaded file to save space.
       if (body.logoUrl !== undefined && body.logoUrl !== previousLogo) {
         await deleteUploadedFile(previousLogo);
       }
-      return { channel: await serializeChannel(updated) };
+      // Same for the channel card thumbnail.
+      if (body.coverUrl !== undefined && body.coverUrl !== previousCover) {
+        await deleteUploadedFile(previousCover);
+      }
+      // Broadcast the new metadata so viewer cards update without a refresh.
+      publishChannel(c.id, serialized);
+      return { channel: serialized };
     },
     {
       body: t.Object({
@@ -169,7 +180,7 @@ export const adminChannels = new Elysia({ prefix: '/api/admin/channels' })
         visibility: t.Optional(t.Enum({ PUBLIC: 'PUBLIC', PRIVATE: 'PRIVATE' })),
         accessType: t.Optional(t.Enum({ FREE: 'FREE', SUBSCRIPTION: 'SUBSCRIPTION' })),
         logoUrl: t.Optional(t.Nullable(t.String())),
-        coverUrl: t.Optional(t.String()),
+        coverUrl: t.Optional(t.Nullable(t.String())),
       }),
     }
   )
@@ -185,6 +196,7 @@ export const adminChannels = new Elysia({ prefix: '/api/admin/channels' })
     }
     await mediaServer.deletePath(c.id).catch(() => {});
     await deleteUploadedFile(c.logoUrl);
+    await deleteUploadedFile(c.coverUrl);
     await prisma.channel.delete({ where: { id: c.id } });
     return { ok: true };
   })
@@ -244,9 +256,9 @@ export const adminChannels = new Elysia({ prefix: '/api/admin/channels' })
         bgColor: t.Optional(t.String()),
         speed: t.Optional(t.Number({ minimum: 1, maximum: 200 })),
         opacity: t.Optional(t.Number({ minimum: 0, maximum: 1 })),
-        imageUrl: t.Optional(t.String()),
-        width: t.Optional(t.Number({ minimum: 8, maximum: 2000 })),
-        height: t.Optional(t.Number({ minimum: 8, maximum: 2000 })),
+        imageUrl: t.Optional(t.Nullable(t.String())),
+        width: t.Optional(t.Nullable(t.Number({ minimum: 8, maximum: 2000 }))),
+        height: t.Optional(t.Nullable(t.Number({ minimum: 8, maximum: 2000 }))),
         borderRadius: t.Optional(t.Number({ minimum: 0, maximum: 500 })),
       }),
     }

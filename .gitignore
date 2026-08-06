@@ -13,3 +13,6 @@ server/uploads/
 # MediaMTX auto-generated self-signed certs (WebRTC/WHEP/WHIP)
 auto.crt
 auto.key
+
+# Playwright debug helper
+play_test.mjs

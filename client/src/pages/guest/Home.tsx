@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { http } from '../../lib/api';
 import type { Channel } from '../../types';
 import { Link } from 'react-router-dom';
@@ -65,8 +65,10 @@ function ChannelCard({ channel, live }: { channel: Channel; live: boolean }) {
 export default function Home() {
   const { channels, loading, load } = useChannels();
   const live = useLiveStore((s) => s.live);
+  const realtimeChannels = useLiveStore((s) => s.channels);
   const connect = useLiveStore((s) => s.connect);
   const { user } = useAuthStore();
+  const [query, setQuery] = useState('');
 
   useEffect(() => {
     connect();
@@ -74,6 +76,12 @@ export default function Home() {
   }, [connect, load]);
 
   const isStaff = user && (user.role === 'ADMIN' || user.role === 'PRODUCER');
+  const q = query.trim().toLowerCase();
+  const filtered = q
+    ? channels.filter(
+        (c) => c.name.toLowerCase().includes(q) || (c.type === 'TV' ? 'tv' : 'radio').includes(q)
+      )
+    : channels;
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
@@ -97,12 +105,25 @@ export default function Home() {
       </header>
 
       <h2 className="mb-4 text-lg font-semibold text-zinc-300">Channels</h2>
+
+      <div className="mb-4">
+        <input
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search channels…"
+          className="w-full max-w-sm rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2.5 text-sm placeholder-zinc-500 focus:border-brand-600 focus:outline-none"
+        />
+      </div>
+
       {loading ? (
         <p className="text-zinc-500">Loading…</p>
+      ) : filtered.length === 0 ? (
+        <p className="text-zinc-500">No channels match "{query}".</p>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {channels.map((c) => (
-            <ChannelCard key={c.id} channel={c} live={live[c.id] ?? c.live} />
+          {filtered.map((c) => (
+            <ChannelCard key={c.id} channel={realtimeChannels[c.id] ?? c} live={live[c.id] ?? c.live} />
           ))}
         </div>
       )}

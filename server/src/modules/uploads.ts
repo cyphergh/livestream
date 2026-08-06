@@ -1,5 +1,6 @@
 import { Elysia, t } from 'elysia';
 import path from 'path';
+import { spawnSync } from 'child_process';
 import { jwtPlugin } from '../lib/jwt-plugin';
 import { resolveUser } from '../lib/user';
 import { isProducer } from '../lib/auth';
@@ -43,6 +44,41 @@ export const uploads = new Elysia({ prefix: '/api/uploads' })
     {
       body: t.Object({
         file: t.File({ type: 'image', maxSize: 5 * 1024 * 1024 }),
+      }),
+    }
+  )
+  // Channel card thumbnail (TV card on the home page). Same flow as logos,
+  // but resized so its width never exceeds the card (~300px) to keep pages light.
+  .post(
+    '/thumbnail',
+    async ({ body, user, set }) => {
+      if (!isProducer(user)) {
+        set.status = 403;
+        return { message: 'Forbidden' };
+      }
+      const file = body.file;
+      const dir = uploadsDir('thumbnails');
+      const tmp = path.join(dir, `tmp-${crypto.randomUUID()}${extFor(file.type)}`);
+      const outName = `${crypto.randomUUID()}.jpg`;
+      const out = path.join(dir, outName);
+      await Bun.write(tmp, file);
+      const scaled = spawnSync(
+        'ffmpeg',
+        ['-y', '-i', tmp, '-vf', "scale='min(300,iw)':-2", '-q:v', '3', out],
+        { stdio: 'ignore' }
+      );
+      await Bun.file(tmp).unlink().catch(() => {});
+      if (scaled.status !== 0) {
+        // Resize failed: fall back to the original, but keep a proper extension.
+        const fallbackName = `${crypto.randomUUID()}${extFor(file.type)}`;
+        await Bun.write(path.join(dir, fallbackName), file);
+        return { url: `/uploads/thumbnails/${fallbackName}` };
+      }
+      return { url: `/uploads/thumbnails/${outName}` };
+    },
+    {
+      body: t.Object({
+        file: t.File({ type: 'image', maxSize: 10 * 1024 * 1024 }),
       }),
     }
   );

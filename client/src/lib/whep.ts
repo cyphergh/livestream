@@ -38,7 +38,13 @@ export async function attachWhep(
 
   const answer = await res.text();
   await pc.setRemoteDescription({ type: 'answer', sdp: answer });
-  const resource = res.headers.get('Location') ?? whepUrl;
+
+  // The WHEP endpoint returns the trickle-ICE resource in `Location`, but that
+  // value can be a *relative* path (MediaMTX returns `/pv-…/whep/<uuid>`). Resolve
+  // it against the WHEP origin so candidates actually reach MediaMTX instead of
+  // accidentally hitting the viewer's origin (which 404s).
+  const loc = res.headers.get('Location');
+  const resource = loc ? new URL(loc, whepUrl).toString() : whepUrl;
 
   pc.onicecandidate = (e) => {
     if (e.candidate) {

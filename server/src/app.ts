@@ -9,6 +9,7 @@ import { hlsProxy } from './modules/media/hls';
 import { ingest } from './modules/ingest/ingest';
 import { realtime } from './modules/realtime';
 import { uploads, uploadsStatic } from './modules/uploads';
+import { publicGuide, adminPrograms } from './modules/programs';
 
 export const app = new Elysia()
   .use(
@@ -24,7 +25,9 @@ export const app = new Elysia()
   .use(whip)
   .use(hlsProxy)
   .use(publicChannels)
+  .use(publicGuide)
   .use(adminChannels)
+  .use(adminPrograms)
   .use(ingest)
   .use(realtime)
   .use(uploads)

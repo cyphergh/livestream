@@ -30,6 +30,8 @@ export const mediaAuth = new Elysia().post('/api/media/auth', async ({ body, set
     return 'Unauthorized';
   }
 
+  // The stream path is the channel id (the live encoder publishes to the
+  // channel's own path). Resolve and authorize against the channel's ingest key.
   const channelId = path.split('/')[0];
 
   // Publishing (RTMP/RTSP/SRT from encoders, or WHIP via our proxy).

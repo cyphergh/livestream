@@ -64,6 +64,15 @@ export interface Program {
   endsAt: string;
 }
 
+export interface GuideRow {
+  slug: string;
+  name: string;
+  type: ChannelType;
+  logoUrl?: string | null;
+  live: boolean;
+  programs: Program[];
+}
+
 export interface IngestKey {
   id: string;
   channelId: string;

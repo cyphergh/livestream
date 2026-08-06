@@ -51,10 +51,11 @@ export const http = {
     apiFetch<T>(path, { method: 'PUT', body: JSON.stringify(body) }),
   del: <T>(path: string) => apiFetch<T>(path, { method: 'DELETE' }),
   // Multipart file upload (do NOT set Content-Type; the browser adds the boundary).
-  upload: async <T>(path: string, file: File) => {
+  upload: async <T>(path: string, file: File, fields?: Record<string, string>) => {
     const accessToken = useAuthStore.getState().accessToken;
     const form = new FormData();
     form.append('file', file);
+    if (fields) for (const [k, v] of Object.entries(fields)) form.append(k, v);
     const res = await fetch(`${API}${path}`, {
       method: 'POST',
       body: form,

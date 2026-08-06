@@ -63,6 +63,16 @@ export function publishOverlay(channelId: string, overlay: unknown) {
   broadcast({ type: 'channel:overlay', id: channelId, overlay });
 }
 
+// Push updated channel metadata (e.g. a new thumbnail/logo) so cards update live.
+export function publishChannel(channelId: string, channel: unknown) {
+  broadcast({ type: 'channel:update', id: channelId, channel });
+}
+
+// Push a channel's today's schedule so program guides update live.
+export function publishPrograms(channelId: string, programs: unknown) {
+  broadcast({ type: 'channel:programs', id: channelId, programs });
+}
+
 export function stopRealtime() {
   if (timer) clearInterval(timer);
   timer = null;
