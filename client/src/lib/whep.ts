@@ -25,7 +25,9 @@ export async function attachWhep(
   const resource = res.headers.get('Location') ?? whepUrl;
 
   pc.ontrack = (e) => {
-    video.srcObject = e.streams[0];
+    // Some browsers/answers don't associate a MediaStream with the track;
+    // wrap the track so the video element always gets a srcObject.
+    video.srcObject = e.streams[0] ?? new MediaStream([e.track]);
     video.play().catch(() => {});
   };
 

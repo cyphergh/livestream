@@ -37,14 +37,19 @@ async function main() {
         ownerId: admin.id,
       },
     });
-    await prisma.ingestKey.create({
-      data: {
-        channelId: channel.id,
-        name: 'Primary RTMP',
-        protocol: 'rtmp',
-        password: crypto.randomUUID().replaceAll('-', '').slice(0, 24),
-      },
-    });
+    for (const def of [
+      { name: 'Primary RTMP', protocol: 'rtmp' as const },
+      { name: 'WebRTC (WHIP)', protocol: 'whep' as const },
+    ]) {
+      await prisma.ingestKey.create({
+        data: {
+          channelId: channel.id,
+          name: def.name,
+          protocol: def.protocol,
+          password: crypto.randomUUID().replaceAll('-', '').slice(0, 24),
+        },
+      });
+    }
     console.log('Seeded channel', s.name);
   }
 

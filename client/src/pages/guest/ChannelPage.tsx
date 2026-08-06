@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import Hls from 'hls.js';
 import { http } from '../../lib/api';
 import { attachWhep } from '../../lib/whep';
+import { useLiveStore } from '../../stores/liveStore';
 import type { Channel } from '../../types';
 
 function TvPlayer({ channel }: { channel: Channel }) {
@@ -13,27 +14,54 @@ function TvPlayer({ channel }: { channel: Channel }) {
 
   useEffect(() => {
     let cancelled = false;
+    let fallback = false;
     let whepCleanup: { close: () => void } | null = null;
+    let hls: Hls | null = null;
     const video = videoRef.current;
     if (!video) return;
+
+    const startHls = () => {
+      if (!channel.hls) {
+        setStatus('Not streaming');
+        return;
+      }
+      setMode('hls');
+      setStatus('Buffering…');
+      if (Hls.isSupported()) {
+        hls = new Hls();
+        hls.loadSource(channel.hls);
+        hls.attachMedia(video);
+      } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        video.src = channel.hls;
+      }
+      video.play().catch(() => {});
+    };
+
+    // Fall back to HLS when WHEP fails to establish media.
+    const fallbackToHls = () => {
+      if (cancelled || fallback) return;
+      fallback = true;
+      whepCleanup?.close();
+      setError('Low-latency unavailable, switching to HLS…');
+      startHls();
+    };
 
     if (channel.whep) {
       attachWhep(video, channel.whep, (s) => {
         setStatus(s);
         if (s === 'connected') setMode('whep');
+        if (s === 'failed' || s === 'closed') fallbackToHls();
       })
         .then((cleanup) => {
           whepCleanup = cleanup;
           if (cancelled) cleanup.close();
+          else if (fallback) cleanup.close();
         })
         .catch(() => {
-          if (!cancelled) {
-            setError('Low-latency unavailable, switching to HLS…');
-            setMode('hls');
-          }
+          if (!cancelled) fallbackToHls();
         });
     } else if (channel.hls) {
-      setMode('hls');
+      startHls();
     } else {
       setStatus('Not streaming');
     }
@@ -41,13 +69,13 @@ function TvPlayer({ channel }: { channel: Channel }) {
     return () => {
       cancelled = true;
       whepCleanup?.close();
+      hls?.destroy();
     };
   }, [channel]);
 
   return (
     <>
       <video ref={videoRef} controls autoPlay muted playsInline className="h-full w-full" />
-      {mode === 'hls' && channel.hls && <HlsBackfill src={channel.hls} />}
       {status && (
         <div className="absolute right-2 top-2 rounded bg-black/60 px-2 py-0.5 text-xs text-white">
           {mode === 'whep' ? 'LIVE (WebRTC)' : status}
@@ -56,26 +84,6 @@ function TvPlayer({ channel }: { channel: Channel }) {
       {error && <div className="absolute left-2 top-2 text-xs text-yellow-300">{error}</div>}
       {!channel.live && <Overlay text="Not currently streaming" />}
     </>
-  );
-}
-
-function HlsBackfill({ src }: { src: string }) {
-  const ref = useRef<HTMLVideoElement>(null);
-  useEffect(() => {
-    const video = ref.current;
-    if (!video) return;
-    if (Hls.isSupported()) {
-      const hls = new Hls();
-      hls.loadSource(src);
-      hls.attachMedia(video);
-      return () => hls.destroy();
-    }
-    video.src = src;
-  }, [src]);
-  return (
-    <div className="pointer-events-none absolute inset-0">
-      <video ref={ref} autoPlay muted playsInline className="h-full w-full opacity-0" />
-    </div>
   );
 }
 
@@ -92,14 +100,27 @@ export default function ChannelPage() {
   const [channel, setChannel] = useState<Channel | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const liveMap = useLiveStore((s) => s.live);
+  const connect = useLiveStore((s) => s.connect);
 
   useEffect(() => {
+    connect();
     http
       .get<Channel>(`/channels/${slug}`)
       .then(setChannel)
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
-  }, [slug]);
+  }, [slug, connect]);
+
+  // When the WebSocket reports a live-status flip, re-fetch the channel so the
+  // player picks up (or drops) its whep/hls URLs without a manual reload.
+  useEffect(() => {
+    if (!channel) return;
+    const known = liveMap[channel.id];
+    if (known !== undefined && known !== channel.live) {
+      http.get<Channel>(`/channels/${slug}`).then(setChannel).catch(() => {});
+    }
+  }, [channel, liveMap, slug]);
 
   if (loading) return <div className="mx-auto max-w-4xl px-4 py-8 text-zinc-400">Loading…</div>;
   if (error || !channel)

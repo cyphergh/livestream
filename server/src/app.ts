@@ -7,6 +7,7 @@ import { mediaAuth } from './modules/media/auth';
 import { whip } from './modules/media/whip';
 import { hlsProxy } from './modules/media/hls';
 import { ingest } from './modules/ingest/ingest';
+import { realtime } from './modules/realtime';
 
 export const app = new Elysia()
   .use(
@@ -23,6 +24,7 @@ export const app = new Elysia()
   .use(publicChannels)
   .use(adminChannels)
   .use(ingest)
+  .use(realtime)
   .onError(({ code, error, set }) => {
     const message = error instanceof Error ? error.message : String(error);
     if (code === 'NOT_FOUND') {

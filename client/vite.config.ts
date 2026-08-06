@@ -9,6 +9,7 @@ export default defineConfig({
     proxy: {
       '/api': 'http://localhost:3000',
       '/media': 'http://localhost:8888', // HLS via MediaMTX
+      '/ws': { target: 'http://localhost:3000', ws: true }, // live-status bus
     },
   },
 });

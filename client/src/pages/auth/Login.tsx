@@ -9,14 +9,20 @@ export default function Login() {
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  if (user) return <Navigate to="/" replace />;
+  if (user)
+    return (
+      <Navigate
+        to={user.role === 'ADMIN' || user.role === 'PRODUCER' ? '/admin' : '/'}
+        replace
+      />
+    );
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
     try {
-      await login(email, password);
-      navigate(user?.role === 'ADMIN' || user?.role === 'PRODUCER' ? '/admin' : '/');
+      const u = await login(email, password);
+      navigate(u.role === 'ADMIN' || u.role === 'PRODUCER' ? '/admin' : '/');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');
     }

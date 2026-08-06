@@ -3,6 +3,7 @@ import { http } from '../../lib/api';
 import type { Channel } from '../../types';
 import { Link } from 'react-router-dom';
 import { create } from 'zustand';
+import { useLiveStore } from '../../stores/liveStore';
 
 interface ChannelsState {
   channels: Channel[];
@@ -20,7 +21,7 @@ const useChannels = create<ChannelsState>((set) => ({
   },
 }));
 
-function ChannelCard({ channel }: { channel: Channel }) {
+function ChannelCard({ channel, live }: { channel: Channel; live: boolean }) {
   return (
     <Link
       to={`/channel/${channel.slug}`}
@@ -36,10 +37,10 @@ function ChannelCard({ channel }: { channel: Channel }) {
         )}
         <span
           className={`absolute left-2 top-2 rounded px-2 py-0.5 text-xs font-semibold ${
-            channel.live ? 'bg-red-600 text-white' : 'bg-zinc-700/80 text-zinc-200'
+            live ? 'bg-red-600 text-white' : 'bg-zinc-700/80 text-zinc-200'
           }`}
         >
-          {channel.live ? 'LIVE' : 'OFFLINE'}
+          {live ? 'LIVE' : 'OFFLINE'}
         </span>
       </div>
       <div className="flex items-center justify-between">
@@ -55,10 +56,13 @@ function ChannelCard({ channel }: { channel: Channel }) {
 
 export default function Home() {
   const { channels, loading, load } = useChannels();
+  const live = useLiveStore((s) => s.live);
+  const connect = useLiveStore((s) => s.connect);
 
   useEffect(() => {
+    connect();
     load();
-  }, []);
+  }, [connect, load]);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
@@ -79,7 +83,7 @@ export default function Home() {
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {channels.map((c) => (
-            <ChannelCard key={c.id} channel={c} />
+            <ChannelCard key={c.id} channel={c} live={live[c.id] ?? c.live} />
           ))}
         </div>
       )}

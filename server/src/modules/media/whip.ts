@@ -30,7 +30,8 @@ export const whip = new Elysia({ prefix: '/api/media/whip' })
     if (!channel || (actor.role !== 'ADMIN' && channel.ownerId !== actor.uid)) return denied();
 
     const key = await prisma.ingestKey.findFirst({
-      where: { channelId: channel.id, protocol: 'whep', enabled: true },
+      where: { channelId: channel.id, enabled: true },
+      orderBy: { protocol: 'desc' }, // prefer 'whep', else fall back to rtmp/rtsp/srt
     });
     if (!key) return denied();
 
@@ -49,8 +50,12 @@ export const whip = new Elysia({ prefix: '/api/media/whip' })
       return { message: 'Media server rejected publish', detail: await res.text() };
     }
     const location = res.headers.get('Location');
+    // Rewrite MediaMTX's Location (http://host:8889/.../whip/<session>) to OUR
+    // origin so the client's PATCH (ICE) / DELETE (teardown) go through us and
+    // we can re-attach the MediaMTX Basic credentials.
+    const session = location?.split('/').filter(Boolean).pop();
     set.status = res.status;
-    set.headers['Location'] = location ?? '';
+    set.headers['Location'] = session ? `/api/media/whip/${params.channelId}/${session}` : '';
     return res.body;
   })
   .patch('/:channelId/:session', async ({ params, request, actor, set }) => {
@@ -61,7 +66,8 @@ export const whip = new Elysia({ prefix: '/api/media/whip' })
     const channel = await prisma.channel.findUnique({ where: { id: params.channelId } });
     if (!channel) return denied(401);
     const key = await prisma.ingestKey.findFirst({
-      where: { channelId: channel.id, protocol: 'whep', enabled: true },
+      where: { channelId: channel.id, enabled: true },
+      orderBy: { protocol: 'desc' },
     });
     if (!key) return denied(401);
 
@@ -86,7 +92,8 @@ export const whip = new Elysia({ prefix: '/api/media/whip' })
     const channel = await prisma.channel.findUnique({ where: { id: params.channelId } });
     if (!channel) return denied(401);
     const key = await prisma.ingestKey.findFirst({
-      where: { channelId: channel.id, protocol: 'whep', enabled: true },
+      where: { channelId: channel.id, enabled: true },
+      orderBy: { protocol: 'desc' },
     });
     if (!key) return denied(401);
 
