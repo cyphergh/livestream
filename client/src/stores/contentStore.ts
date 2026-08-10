@@ -29,6 +29,13 @@ const mergeContent = (settings: Record<string, unknown>): SiteContent => {
     ...(typeof s['announcement'] === 'string' ? { 'announcement': s['announcement'] } : {}),
     services,
     ...(typeof s['footer.text'] === 'string' ? { 'footer.text': s['footer.text'] } : {}),
+    ...(typeof s['contact.heading'] === 'string' ? { 'contact.heading': s['contact.heading'] } : {}),
+    ...(typeof s['contact.body'] === 'string' ? { 'contact.body': s['contact.body'] } : {}),
+    ...(typeof s['contact.email'] === 'string' ? { 'contact.email': s['contact.email'] } : {}),
+    ...(typeof s['contact.phone'] === 'string' ? { 'contact.phone': s['contact.phone'] } : {}),
+    ...(typeof s['contact.address'] === 'string' ? { 'contact.address': s['contact.address'] } : {}),
+    ...(typeof s['contact.hours'] === 'string' ? { 'contact.hours': s['contact.hours'] } : {}),
+    ...(typeof s['contact.mapUrl'] === 'string' ? { 'contact.mapUrl': s['contact.mapUrl'] } : {}),
   };
 };
 

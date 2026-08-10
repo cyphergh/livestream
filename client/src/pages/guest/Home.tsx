@@ -8,6 +8,7 @@ import LiveNow from '../../components/landing/LiveNow';
 import About from '../../components/landing/About';
 import Services from '../../components/landing/Services';
 import MediaSection from '../../components/landing/MediaSection';
+import Contact from '../../components/landing/Contact';
 import Footer from '../../components/landing/Footer';
 
 export default function Home() {
@@ -22,7 +23,7 @@ export default function Home() {
   }, [connect, loadChannels, loadContent]);
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[#0a0718]">
+    <div className="min-h-screen overflow-x-hidden bg-white text-zinc-900">
       <Navbar />
       <main>
         <Hero />
@@ -30,6 +31,7 @@ export default function Home() {
         <About />
         <Services />
         <MediaSection />
+        <Contact />
       </main>
       <Footer />
     </div>

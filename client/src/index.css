@@ -1,11 +1,13 @@
 @import "tailwindcss";
 
 @theme {
-  --color-brand-50: #eef2ff;
-  --color-brand-400: #818cf8;
-  --color-brand-500: #6366f1;
-  --color-brand-600: #4f46e5;
-  --color-brand-700: #4338ca;
+  --color-brand-50: #eff6ff;
+  --color-brand-100: #dbeafe;
+  --color-brand-200: #bfdbfe;
+  --color-brand-400: #60a5fa;
+  --color-brand-500: #3b82f6;
+  --color-brand-600: #2563eb;
+  --color-brand-700: #1d4ed8;
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Space Grotesk", "Inter", ui-sans-serif, system-ui, sans-serif;
 
@@ -69,13 +71,13 @@ html {
 }
 
 body {
-  @apply bg-zinc-950 text-zinc-100 antialiased;
-  background-color: #0a0718;
+  @apply bg-white text-zinc-900 antialiased;
+  background-color: #ffffff;
 }
 
 ::selection {
-  background: rgba(79, 70, 229, 0.45);
-  color: #fff;
+  background: rgba(37, 99, 235, 0.22);
+  color: #0f172a;
 }
 
 @keyframes marquee {
@@ -87,15 +89,16 @@ body {
   }
 }
 
-/* Glassy futuristic surface */
+/* Light frosted surface */
 .glass {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02));
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.7));
+  border: 1px solid rgba(15, 23, 42, 0.08);
   backdrop-filter: blur(16px);
+  box-shadow: 0 8px 32px rgba(15, 23, 42, 0.08);
 }
 
 .text-gradient {
-  background: linear-gradient(100deg, #a5b4fc, #67e8f9 45%, #c084fc 80%, #a5b4fc);
+  background: linear-gradient(100deg, #2563eb, #dc2626 45%, #1d4ed8 80%, #2563eb);
   background-size: 200% auto;
   -webkit-background-clip: text;
   background-clip: text;
@@ -103,7 +106,7 @@ body {
 }
 
 .text-gradient-static {
-  background: linear-gradient(100deg, #a5b4fc, #67e8f9 55%, #e0e7ff);
+  background: linear-gradient(100deg, #2563eb, #1d4ed8 55%, #dc2626);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -119,7 +122,7 @@ body {
   inset: 0;
   border-radius: inherit;
   padding: 1px;
-  background: linear-gradient(135deg, rgba(129, 140, 248, 0.7), rgba(34, 211, 238, 0.35), rgba(192, 132, 252, 0.6));
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.75), rgba(255, 255, 255, 0.9), rgba(220, 38, 38, 0.55));
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
@@ -131,6 +134,6 @@ body {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  opacity: 0.03;
+  opacity: 0.025;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }

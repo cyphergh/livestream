@@ -407,9 +407,9 @@ export default function ChannelPage() {
     }
   }, [channel, liveMap, slug]);
 
-  if (loading) return <div className="mx-auto max-w-4xl px-4 py-8 text-zinc-400">Loading…</div>;
+  if (loading) return <div className="mx-auto max-w-4xl px-4 py-8 text-zinc-500">Loading…</div>;
   if (error || !channel)
-    return <div className="mx-auto max-w-4xl px-4 py-8 text-zinc-400">{error ?? 'Not found'}</div>;
+    return <div className="mx-auto max-w-4xl px-4 py-8 text-zinc-500">{error ?? 'Not found'}</div>;
 
   return (
     <ChannelPageContent channel={channel} overlays={overlays} playerRef={playerRef} />
@@ -447,7 +447,7 @@ function ChannelPageContent({
           className={`rounded px-2 py-0.5 text-xs font-semibold ${
             channel.live
               ? 'bg-red-600 text-white'
-              : 'bg-zinc-700 text-zinc-300'
+              : 'bg-zinc-200 text-zinc-600'
           }`}
         >
           {channel.live ? 'LIVE' : 'OFFLINE'}
@@ -455,8 +455,8 @@ function ChannelPageContent({
       </div>
 
       <div className="mb-4">
-        <h1 className="text-2xl font-bold">{channel.name}</h1>
-        {channel.description && <p className="mt-1 text-zinc-400">{channel.description}</p>}
+        <h1 className="text-2xl font-bold text-zinc-900">{channel.name}</h1>
+        {channel.description && <p className="mt-1 text-zinc-500">{channel.description}</p>}
       </div>
 
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
@@ -474,7 +474,7 @@ function ChannelPageContent({
               </button>
             </div>
           ) : (
-            <div className="rounded-xl bg-zinc-900 p-6">
+            <div className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
               {channel.hls ? (
                 <audio controls autoPlay src={channel.hls} className="w-full" />
               ) : (

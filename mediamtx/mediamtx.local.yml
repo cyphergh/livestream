@@ -2,9 +2,9 @@
 
 logLevel: info
 
-# API on 10.42.0.1, excluded from HTTP auth (internal 10.42.0.1 user allows it).
+# API on localhost, excluded from HTTP auth (internal localhost user allows it).
 api: true
-apiAddress: 10.42.0.1:9997
+apiAddress: 127.0.0.1:9997
 apiEncryption: false
 
 rtmp: true
@@ -22,14 +22,14 @@ webrtcAddress: :8889
 
 # Authorize publishers/readers through our Bun backend.
 authMethod: http
-authHTTPAddress: http://10.42.0.1:3000/api/media/auth
+authHTTPAddress: http://localhost:3000/api/media/auth
 authHTTPExclude:
   - action: api
     path:
   - action: metrics
     path:
 
-# Internal users used for actions excluded from HTTP auth (API on 10.42.0.1).
+# Internal users used for actions excluded from HTTP auth (API on localhost).
 authInternalUsers:
   - user: any
     pass:

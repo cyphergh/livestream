@@ -18,23 +18,23 @@ export default function Radio() {
       <Link to="/" className="mb-4 inline-block text-sm text-brand-600">
         ← Home
       </Link>
-      <h1 className="mb-6 text-2xl font-bold">Radio</h1>
+      <h1 className="mb-6 text-2xl font-bold text-zinc-900">Radio</h1>
 
-      <ul className="divide-y divide-zinc-800 rounded-xl bg-zinc-900">
+      <ul className="divide-y divide-zinc-100 rounded-xl border border-zinc-200 bg-white shadow-sm">
         {channels.map((c) => (
           <li key={c.id}>
             <button
               onClick={() => setCurrent(c)}
-              className={`flex w-full items-center gap-4 p-4 text-left transition hover:bg-zinc-800 ${
-                current?.id === c.id ? 'bg-zinc-800' : ''
+              className={`flex w-full items-center gap-4 p-4 text-left transition hover:bg-zinc-50 ${
+                current?.id === c.id ? 'bg-zinc-50' : ''
               }`}
             >
               <span
                 className={`h-2.5 w-2.5 rounded-full ${
-                  c.live ? 'bg-red-500' : 'bg-zinc-600'
+                  c.live ? 'bg-red-500' : 'bg-zinc-300'
                 }`}
               />
-              <span className="font-medium">{c.name}</span>
+              <span className="font-medium text-zinc-800">{c.name}</span>
               {current?.id === c.id && <span className="ml-auto text-sm text-brand-600">Playing</span>}
             </button>
           </li>
@@ -42,9 +42,9 @@ export default function Radio() {
       </ul>
 
       {current?.hls && (
-        <div className="sticky bottom-0 mt-6 rounded-t-xl bg-zinc-900 p-4">
+        <div className="sticky bottom-0 mt-6 rounded-t-xl border border-zinc-200 bg-white p-4 shadow-lg shadow-zinc-200/60">
           <div className="mb-2 flex items-center justify-between">
-            <span className="font-semibold">{current.name}</span>
+            <span className="font-semibold text-zinc-800">{current.name}</span>
             <span className="text-xs text-red-500">LIVE</span>
           </div>
           <audio controls autoPlay src={current.hls} className="w-full" />

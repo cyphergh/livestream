@@ -13,6 +13,13 @@ const FIELDS: { key: string; label: string; kind: 'text' | 'textarea'; hint?: st
   { key: 'about.body', label: 'About text', kind: 'textarea' },
   { key: 'announcement', label: 'Announcement banner', kind: 'text', hint: 'Shown at the top of the "Plan your visit" section.' },
   { key: 'footer.text', label: 'Footer tagline', kind: 'text' },
+  { key: 'contact.heading', label: 'Contact heading', kind: 'text' },
+  { key: 'contact.body', label: 'Contact intro text', kind: 'textarea' },
+  { key: 'contact.email', label: 'Contact email', kind: 'text', hint: 'Opens the visitor’s email app (mailto).' },
+  { key: 'contact.phone', label: 'Contact phone', kind: 'text', hint: 'Opens the visitor’s dialer (tel).' },
+  { key: 'contact.address', label: 'Location address', kind: 'text' },
+  { key: 'contact.hours', label: 'Office / visitor hours', kind: 'text' },
+  { key: 'contact.mapUrl', label: 'Map embed URL', kind: 'text', hint: 'Google Maps embed src (e.g. https://www.google.com/maps?q=…&output=embed). Leave blank to show the address card.' },
 ];
 
 const inputCls =
