@@ -10,6 +10,7 @@ import Register from './pages/auth/Register';
 import AdminLayout from './pages/admin/AdminLayout';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import Studio from './pages/admin/Studio';
+import Cms from './pages/admin/Cms';
 
 export default function App() {
   const { loadMe, accessToken } = useAuthStore();
@@ -28,6 +29,7 @@ export default function App() {
       <Route path="/register" element={<Register />} />
       <Route path="/admin" element={<AdminLayout />}>
         <Route index element={<AdminDashboard />} />
+        <Route path="cms" element={<Cms />} />
         <Route path="studio/:slug" element={<Studio />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

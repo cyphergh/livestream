@@ -1,132 +1,37 @@
-import { useEffect, useState } from 'react';
-import { http } from '../../lib/api';
-import type { Channel } from '../../types';
-import { Link } from 'react-router-dom';
-import { create } from 'zustand';
+import { useEffect } from 'react';
 import { useLiveStore } from '../../stores/liveStore';
-import { useAuthStore } from '../../stores/authStore';
-
-interface ChannelsState {
-  channels: Channel[];
-  loading: boolean;
-  load: () => Promise<void>;
-}
-
-const useChannels = create<ChannelsState>((set) => ({
-  channels: [],
-  loading: false,
-  async load() {
-    set({ loading: true });
-    const data = await http.get<{ items: Channel[] }>('/channels');
-    set({ channels: data.items, loading: false });
-  },
-}));
-
-function ChannelCard({ channel, live }: { channel: Channel; live: boolean }) {
-  return (
-    <Link
-      to={`/channel/${channel.slug}`}
-      className="group rounded-xl bg-zinc-900 p-4 transition hover:bg-zinc-800"
-    >
-      <div className="relative mb-3 aspect-video overflow-hidden rounded-lg bg-zinc-800">
-        {channel.coverUrl ? (
-          <img src={channel.coverUrl} alt={channel.name} className="h-full w-full object-cover" />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center text-5xl font-bold text-zinc-700">
-            {channel.name.charAt(0)}
-          </div>
-        )}
-        {channel.logoUrl && (
-          <img
-            src={channel.logoUrl}
-            alt={`${channel.name} logo`}
-            className="absolute left-2 top-2 h-8 w-8 rounded object-cover shadow"
-          />
-        )}
-        <span
-          className={`absolute right-2 top-2 rounded px-2 py-0.5 text-xs font-semibold ${
-            live ? 'bg-red-600 text-white' : 'bg-zinc-700/80 text-zinc-200'
-          }`}
-        >
-          {live ? 'LIVE' : 'OFFLINE'}
-        </span>
-      </div>
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="font-semibold">{channel.name}</h3>
-          <p className="text-sm text-zinc-400">{channel.type === 'RADIO' ? 'Radio' : 'TV'}</p>
-        </div>
-        <span className="text-xs uppercase tracking-wide text-brand-600">{channel.type}</span>
-      </div>
-    </Link>
-  );
-}
+import { useChannelsStore } from '../../stores/channelsStore';
+import { useContentStore } from '../../stores/contentStore';
+import Navbar from '../../components/landing/Navbar';
+import Hero from '../../components/landing/Hero';
+import LiveNow from '../../components/landing/LiveNow';
+import About from '../../components/landing/About';
+import Services from '../../components/landing/Services';
+import MediaSection from '../../components/landing/MediaSection';
+import Footer from '../../components/landing/Footer';
 
 export default function Home() {
-  const { channels, loading, load } = useChannels();
-  const live = useLiveStore((s) => s.live);
-  const realtimeChannels = useLiveStore((s) => s.channels);
   const connect = useLiveStore((s) => s.connect);
-  const { user } = useAuthStore();
-  const [query, setQuery] = useState('');
+  const loadChannels = useChannelsStore((s) => s.load);
+  const loadContent = useContentStore((s) => s.load);
 
   useEffect(() => {
     connect();
-    load();
-  }, [connect, load]);
-
-  const isStaff = user && (user.role === 'ADMIN' || user.role === 'PRODUCER');
-  const q = query.trim().toLowerCase();
-  const filtered = q
-    ? channels.filter(
-        (c) => c.name.toLowerCase().includes(q) || (c.type === 'TV' ? 'tv' : 'radio').includes(q)
-      )
-    : channels;
+    loadChannels();
+    loadContent();
+  }, [connect, loadChannels, loadContent]);
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8">
-      <header className="mb-8 flex items-center justify-between">
-        <h1 className="text-2xl font-bold">LiveStream</h1>
-        <nav className="flex gap-4 text-sm text-zinc-300">
-          <Link to="/radio">Radio</Link>
-          <Link to="/epg">EPG</Link>
-          {isStaff ? (
-            <Link to="/admin" className="text-brand-600">
-              Dashboard
-            </Link>
-          ) : user ? (
-            <span className="text-zinc-500">{user.name}</span>
-          ) : (
-            <Link to="/login" className="text-brand-600">
-              Sign in
-            </Link>
-          )}
-        </nav>
-      </header>
-
-      <h2 className="mb-4 text-lg font-semibold text-zinc-300">Channels</h2>
-
-      <div className="mb-4">
-        <input
-          type="search"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search channels…"
-          className="w-full max-w-sm rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2.5 text-sm placeholder-zinc-500 focus:border-brand-600 focus:outline-none"
-        />
-      </div>
-
-      {loading ? (
-        <p className="text-zinc-500">Loading…</p>
-      ) : filtered.length === 0 ? (
-        <p className="text-zinc-500">No channels match "{query}".</p>
-      ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((c) => (
-            <ChannelCard key={c.id} channel={realtimeChannels[c.id] ?? c} live={live[c.id] ?? c.live} />
-          ))}
-        </div>
-      )}
+    <div className="min-h-screen overflow-x-hidden bg-[#0a0718]">
+      <Navbar />
+      <main>
+        <Hero />
+        <LiveNow />
+        <About />
+        <Services />
+        <MediaSection />
+      </main>
+      <Footer />
     </div>
   );
 }

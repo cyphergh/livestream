@@ -83,7 +83,7 @@ export const uploads = new Elysia({ prefix: '/api/uploads' })
     }
   );
 
-// Static serving for /uploads/* (logos etc.).
+// Static serving for /uploads/* (logos, CMS images, VOD HLS).
 export const uploadsStatic = new Elysia().get('/uploads/*', async ({ params, set }) => {
   const rel = params['*'] as string | undefined;
   if (!rel || rel.includes('..')) {
@@ -95,5 +95,40 @@ export const uploadsStatic = new Elysia().get('/uploads/*', async ({ params, set
     set.status = 404;
     return { message: 'Not found' };
   }
+  const lower = rel.toLowerCase();
+  if (lower.endsWith('.m3u8')) {
+    set.headers['Content-Type'] = 'application/vnd.apple.mpegurl';
+    set.headers['Cache-Control'] = 'no-store';
+  } else if (lower.endsWith('.ts')) {
+    set.headers['Content-Type'] = 'video/mp2t';
+    set.headers['Cache-Control'] = 'public, max-age=86400';
+  } else {
+    const ext = lower.slice(lower.lastIndexOf('.'));
+    const mime = mimeFor(ext);
+    if (mime) set.headers['Content-Type'] = mime;
+    set.headers['Cache-Control'] = 'public, max-age=86400';
+  }
   return new Response(file);
 });
+
+const mimeFor = (ext: string): string | undefined => {
+  switch (ext) {
+    case '.jpg':
+    case '.jpeg':
+      return 'image/jpeg';
+    case '.png':
+      return 'image/png';
+    case '.webp':
+      return 'image/webp';
+    case '.gif':
+      return 'image/gif';
+    case '.svg':
+      return 'image/svg+xml';
+    case '.mp4':
+      return 'video/mp4';
+    case '.webm':
+      return 'video/webm';
+    default:
+      return undefined;
+  }
+};

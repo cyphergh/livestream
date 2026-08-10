@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "framer-motion": "^13.0.0",
     "hls.js": "^1.5.17",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

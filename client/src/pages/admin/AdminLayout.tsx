@@ -3,7 +3,7 @@ import { useAuthStore } from '../../stores/authStore';
 
 const nav = [
   { to: '/admin', label: 'Dashboard', end: true },
-  { to: '/admin/channels', label: 'Channels', end: false },
+  { to: '/admin/cms', label: 'CMS', end: false },
 ];
 
 export default function AdminLayout() {

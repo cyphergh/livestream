@@ -115,3 +115,34 @@ export interface ChatMessage {
   body: string;
   createdAt: string;
 }
+
+export type MediaType = 'IMAGE' | 'VIDEO';
+export type MediaStatus = 'PROCESSING' | 'READY' | 'FAILED';
+
+export interface MediaAsset {
+  id: string;
+  type: MediaType;
+  name: string;
+  description?: string | null;
+  mime: string;
+  size: number;
+  status: MediaStatus;
+  url: string;
+  posterUrl?: string | null;
+  duration?: number | null;
+  published: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SiteSetting {
+  id: string;
+  key: string;
+  value: unknown;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SiteContentResult {
+  settings: Record<string, unknown>;
+}
