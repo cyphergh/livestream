@@ -15,7 +15,7 @@ export default function AdminLayout() {
     return <Navigate to="/" replace />;
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen bg-zinc-950 text-zinc-100">
       <aside className="flex w-60 flex-col border-r border-zinc-800 bg-zinc-900">
         <div className="border-b border-zinc-800 p-4">
           <h1 className="text-lg font-bold">Studio</h1>

@@ -38,7 +38,7 @@ export default function Login() {
     'focus:ring-2 focus:ring-brand-500/40';
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-zinc-950 px-4">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-zinc-950 px-4 text-zinc-100">
       {/* cinematic background */}
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,#4f46e5_0%,transparent_55%),radial-gradient(circle_at_bottom_right,#a855f7_0%,transparent_50%)]" />

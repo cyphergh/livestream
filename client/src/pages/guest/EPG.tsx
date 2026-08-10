@@ -70,7 +70,7 @@ export default function EPG() {
                       </span>{' '}
                       <span className="font-medium">{p.title}</span>
                       {p.genre && (
-                        <span className="ml-1.5 rounded bg-zinc-200 px-1.5 py-0.5 text-[10px] text-zinc-700">
+                        <span className="ml-1.5 rounded bg-zinc-200 px-1.5 py-0.5 text-[10px] text-zinc-600">
                           {p.genre}
                         </span>
                       )}

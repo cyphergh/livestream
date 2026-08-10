@@ -24,7 +24,7 @@ export default function Register() {
   }
 
   return (
-    <div className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-4">
+    <div className="mx-auto flex min-h-screen max-w-sm flex-col justify-center bg-zinc-950 px-4 text-zinc-100">
       <h1 className="mb-6 text-2xl font-bold">Create account</h1>
       <form onSubmit={onSubmit} className="space-y-4">
         <input

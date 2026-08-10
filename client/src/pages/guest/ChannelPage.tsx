@@ -347,8 +347,8 @@ function ProgramSidebar({ channel }: { channel: Channel }) {
     new Date(e).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
   return (
-    <div className="flex max-h-[80vh] flex-col rounded-xl border border-zinc-800 bg-zinc-900 lg:sticky lg:top-6">
-      <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
+    <div className="flex max-h-[80vh] flex-col rounded-xl border border-zinc-200 bg-white shadow-sm lg:sticky lg:top-6">
+      <div className="flex items-center justify-between border-b border-zinc-100 px-4 py-3">
         <h2 className="font-semibold">Program guide</h2>
         <span className="text-xs text-zinc-500">{todays.length > 0 ? 'Today' : 'Coming up'}</span>
       </div>
@@ -358,13 +358,13 @@ function ProgramSidebar({ channel }: { channel: Channel }) {
         ) : (
           <ul className="space-y-2">
             {list.map((p) => (
-              <li key={p.id} className="rounded-lg bg-zinc-800/60 p-3">
+              <li key={p.id} className="rounded-lg bg-zinc-50 p-3">
                 <div className="flex items-start justify-between gap-2">
                   <span className="font-medium">{p.title}</span>
-                  <span className="shrink-0 text-[11px] text-zinc-400">{fmtTime(p.startsAt, p.endsAt)}</span>
+                  <span className="shrink-0 text-[11px] text-zinc-500">{fmtTime(p.startsAt, p.endsAt)}</span>
                 </div>
                 {p.genre && (
-                  <span className="mt-1 inline-block rounded bg-zinc-700 px-1.5 py-0.5 text-[11px] text-zinc-300">
+                  <span className="mt-1 inline-block rounded bg-zinc-200 px-1.5 py-0.5 text-[11px] text-zinc-600">
                     {p.genre}
                   </span>
                 )}
