@@ -75,9 +75,9 @@ export function hlsUrl(path: string): string {
   return `/api/hls/${encodeURIComponent(path)}/index.m3u8`;
 }
 
-/** MediaMTX WHEP read URL for a given path. */
+/** Same-origin WHEP read URL for a given path (proxied by our gateway). */
 export function whepUrl(path: string): string {
-  return `${config.MEDIAMTX_WHEP_URL}/${encodeURIComponent(path)}/whep`;
+  return `/api/media/whep/${encodeURIComponent(path)}`;
 }
 
 /** WHIP publish URL (unauthenticated in front of MediaMTX; gateway enforces). */

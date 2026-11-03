@@ -29,12 +29,15 @@ export default function Studio() {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deviceType, setDeviceType] = useState<'radiio' | 'tv'>('tv');
+  const [cameras, setCameras] = useState<MediaDeviceInfo[]>([]);
+  const [activeCameraId, setActiveCameraId] = useState<string | null>(null);
   const [overlay, setOverlay] = useState<Overlay | null>(null);
   const [overlayLoading, setOverlayLoading] = useState(false);
   const [overlayOpen, setOverlayOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
 
   const previewRef = useRef<HTMLVideoElement>(null);
+  const activeCameraIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     http
@@ -64,6 +67,44 @@ export default function Studio() {
   // Preferred media type = the channel's type.
   useEffect(() => setDeviceType(channel?.type === 'TV' ? 'tv' : 'radiio'), [channel]);
 
+  // Keep a live list of video inputs so viewers can pick between cameras when
+  // more than one is connected (built-in webcam + external, laptop + phone, …).
+  const refreshCameras = async (preferId?: string) => {
+    const cams = (await navigator.mediaDevices.enumerateDevices().catch(() => [])).filter(
+      (d: MediaDeviceInfo) => d.kind === 'videoinput'
+    );
+    setCameras(cams);
+    const current = activeCameraIdRef.current;
+    const active =
+      preferId ??
+      (cams.some((c) => c.deviceId === current) ? current : (cams[0]?.deviceId ?? null));
+    activeCameraIdRef.current = active;
+    setActiveCameraId(active);
+  };
+
+  // Open a video source preferring a specific camera, degrading to "any
+  // camera" instead of failing when the picked device has gone away or the
+  // browser cannot honor an exact device pick.
+  async function openVideo(deviceId?: string): Promise<MediaStream> {
+    if (deviceId) {
+      try {
+        return await navigator.mediaDevices.getUserMedia({
+          video: { deviceId: { exact: deviceId } },
+        });
+      } catch (err) {
+        if ((err as DOMException)?.name !== 'NotFoundError') throw err;
+      }
+    }
+    return navigator.mediaDevices.getUserMedia({ video: true });
+  }
+
+  useEffect(() => {
+    refreshCameras();
+    const onDevices = () => refreshCameras();
+    navigator.mediaDevices.addEventListener('devicechange', onDevices);
+    return () => navigator.mediaDevices.removeEventListener('devicechange', onDevices);
+  }, []);
+
   async function enablePreview() {
     setError(null);
     try {
@@ -73,8 +114,46 @@ export default function Studio() {
       });
       setLocalStream(stream);
       if (previewRef.current) previewRef.current.srcObject = stream;
+      const activeId = stream.getVideoTracks()[0]?.getSettings().deviceId || null;
+      activeCameraIdRef.current = activeId;
+      refreshCameras(activeId ?? undefined);
     } catch (err) {
-      setError('Could not access camera/microphone: ' + (err as Error).message);
+      const e = err as DOMException;
+      const msg =
+        e?.name === 'NotFoundError'
+          ? 'No camera or microphone is available on this device.'
+          : (e?.message ?? 'Unknown error');
+      setError('Could not access camera/microphone: ' + msg);
+    }
+  }
+
+  // Swap the published/preview video track to another camera. The microphone
+  // track is left untouched so audio keeps flowing; if a stream is live the
+  // video is hot-swapped via the existing WebRTC sender.
+  async function switchCamera(deviceId: string) {
+    if (!localStream) return;
+    setError(null);
+    try {
+      const stream = await openVideo(deviceId);
+      const newVideo = stream.getVideoTracks()[0];
+      if (!newVideo) return;
+
+      const oldVideo = localStream.getVideoTracks()[0];
+      if (whip) {
+        const sender = whip.pc.getSenders().find((s) => s.track?.kind === 'video');
+        if (sender) await sender.replaceTrack(newVideo);
+      }
+      const audioTrack = localStream.getAudioTracks()[0];
+      const next = new MediaStream(audioTrack ? [audioTrack, newVideo] : [newVideo]);
+      oldVideo?.stop();
+      setLocalStream(next);
+      if (previewRef.current) previewRef.current.srcObject = next;
+      const realId = newVideo.getSettings().deviceId || null;
+      refreshCameras(realId ?? undefined);
+    } catch (err) {
+      const e = err as DOMException;
+      const msg = e?.name === 'NotFoundError' ? 'No camera is available right now.' : (e?.message ?? 'Unknown error');
+      setError('Could not switch camera: ' + msg);
     }
   }
 
@@ -207,6 +286,23 @@ export default function Studio() {
               <OverlayPreview overlay={overlay} logo={channel?.logoUrl ?? null} />
             )}
           </div>
+
+          {localStream && localStream.getVideoTracks().length > 0 && cameras.length > 1 && (
+            <div className="mb-3 flex items-center gap-2">
+              <span className="shrink-0 text-xs font-medium text-zinc-400">Camera</span>
+              <select
+                value={activeCameraId ?? ''}
+                onChange={(e) => switchCamera(e.target.value)}
+                className="flex-1 rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-sm"
+              >
+                {cameras.map((c, i) => (
+                  <option key={c.deviceId || `cam-${i}`} value={c.deviceId}>
+                    {c.label || `Camera ${i + 1}`}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {overlay?.mode === 'ticker' && (
             <div className="mb-3 rounded-lg border border-zinc-700 bg-zinc-800/50 p-3">

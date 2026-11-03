@@ -10,6 +10,15 @@ function TvPlayer({ channel, containerRef }: { channel: Channel; containerRef: R
   const videoRef = useRef<HTMLVideoElement>(null);
   const [mode, setMode] = useState<'whep' | 'hls' | 'idle'>('idle');
   const [muted, setMuted] = useState(true);
+  // On-screen diagnostics (readable without a dev console): enable with
+  // ?debug=1 on the channel URL.
+  const [dbgLines, setDbgLines] = useState<string[]>([]);
+  const dbgRef = useRef<string[]>([]);
+  const dbg = (msg: string) => {
+    dbgRef.current = [...dbgRef.current.slice(-9), `[${new Date().toLocaleTimeString()}] ${msg}`];
+    setDbgLines(dbgRef.current);
+  };
+  const debug = new URLSearchParams(window.location.search).get('debug') === '1';
 
   // Browsers block autoplay with sound: start muted, then unmute on demand.
   // Tapping the video matches the button's behaviour but also fullscreens.
@@ -35,9 +44,11 @@ function TvPlayer({ channel, containerRef }: { channel: Channel; containerRef: R
     let cancelled = false;
     let fallback = false;
     let whepCleanup: { close: () => void } | null = null;
+    let whepWatchdog: ReturnType<typeof setInterval> | null = null;
     let hls: Hls | null = null;
     const video = videoRef.current;
     if (!video) return;
+    dbg(`start whep=${!!channel.whep} hls=${!!channel.hls}`);
 
     const startHls = () => {
       if (!channel.hls) {
@@ -53,7 +64,10 @@ function TvPlayer({ channel, containerRef }: { channel: Channel; containerRef: R
           fragLoadingRetryDelay: 1000,
         });
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
-          if (!cancelled) console.log('[tv] HLS manifest parsed');
+          if (!cancelled) {
+            console.log('[tv] HLS manifest parsed');
+            dbg('hls manifest parsed');
+          }
         });
         // MediaMTX's HLS muxer only becomes ready once a reader connects, so the
         // first manifest load can 404. hls.js treats network fatals as fatal by
@@ -62,6 +76,7 @@ function TvPlayer({ channel, containerRef }: { channel: Channel; containerRef: R
         hls.on(Hls.Events.ERROR, (_evt, data) => {
           if (!data.fatal || cancelled) return;
           console.warn('[tv] HLS fatal', data.type, data.details);
+          dbg(`hls fatal ${data.type}/${data.details}`);
           if (data.type === Hls.ErrorTypes.NETWORK_ERROR && hls && hlsRetries < 8) {
             hlsRetries++;
             // Back off a moment so the muxer/segments exist before reloading.
@@ -83,45 +98,38 @@ function TvPlayer({ channel, containerRef }: { channel: Channel; containerRef: R
       fallback = true;
       whepCleanup?.close();
       console.warn('[tv] low-latency unavailable, switching to HLS');
+      dbg('whep unavailable -> hls');
       startHls();
     };
 
     if (channel.whep) {
+      // WHEP media needs reachable ICE candidates, which usually only works
+      // same-LAN. On mobile (or across the HTTP tunnel) the connection can sit
+      // in 'connecting' forever without ever failing, so time-box the attempt
+      // and fall back to HLS if no frames render within a few seconds.
+      const whepStartedAt = Date.now();
+      whepWatchdog = setInterval(() => {
+        if (cancelled || fallback) {
+          clearInterval(whepWatchdog!);
+          return;
+        }
+        if (video.videoWidth > 0 && video.currentTime > 0) {
+          // Real frames are flowing; nothing more to watch.
+          clearInterval(whepWatchdog!);
+          dbg(`whep frames ${video.videoWidth}x${video.videoHeight}`);
+          video.play().catch(() => {});
+        } else if (Date.now() - whepStartedAt > 9000) {
+          clearInterval(whepWatchdog!);
+          console.warn('[tv] whep produced no frames, switching to HLS');
+          dbg('whep no frames (9s) -> hls');
+          fallbackToHls();
+        }
+      }, 1000);
+
       attachWhep(video, channel.whep, (s) => {
         console.log('[tv] whep:', s);
-        if (s === 'connected') {
-          setMode('whep');
-          // Safety net: WebRTC can report 'connected' without actually
-          // delivering frames. Watch for a real frame; fall back to HLS if a
-          // video track never appears or no frame arrives within 4s.
-          const connectedAt = Date.now();
-          let firstFrameAt: number | null = null;
-          const tick = () => {
-            video.requestVideoFrameCallback(tick);
-            if (firstFrameAt === null) firstFrameAt = Date.now();
-          };
-          video.requestVideoFrameCallback(tick);
-
-          const watchdog = setInterval(() => {
-            if (cancelled || fallback) {
-              clearInterval(watchdog);
-              return;
-            }
-            const hasVideo = (video.srcObject as MediaStream | null)?.getVideoTracks().length ?? 0;
-            if (hasVideo === 0) {
-              clearInterval(watchdog);
-              console.warn('[tv] whep connected but no video track, switching to HLS');
-              fallbackToHls();
-            } else if (firstFrameAt !== null) {
-              clearInterval(watchdog);
-              video.play().catch(() => {});
-            } else if (Date.now() - connectedAt > 4000) {
-              clearInterval(watchdog);
-              console.warn('[tv] whep connected but no frames, switching to HLS');
-              fallbackToHls();
-            }
-          }, 500);
-        }
+        dbg(`whep ${s}`);
+        if (s === 'connected') setMode('whep');
         if (s === 'failed') fallbackToHls();
       })
         .then((cleanup) => {
@@ -140,6 +148,7 @@ function TvPlayer({ channel, containerRef }: { channel: Channel; containerRef: R
 
     return () => {
       cancelled = true;
+      if (whepWatchdog) clearInterval(whepWatchdog);
       whepCleanup?.close();
       hls?.destroy();
     };
@@ -157,6 +166,14 @@ function TvPlayer({ channel, containerRef }: { channel: Channel; containerRef: R
         onClick={handleTap}
         className="h-full w-full"
       />
+      {debug && (
+        <div className="absolute inset-x-0 bottom-0 z-30 max-h-44 overflow-y-auto bg-black/85 p-2 font-mono text-[10px] leading-tight text-green-400">
+          <div>mode={mode} live={String(channel.live)}</div>
+          {dbgLines.map((l, i) => (
+            <div key={i}>{l}</div>
+          ))}
+        </div>
+      )}
       {muted && hasStream && (
         <button
           type="button"

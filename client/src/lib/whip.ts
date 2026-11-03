@@ -22,6 +22,18 @@ export async function startWhip(opts: {
   });
   stream.getTracks().forEach((t) => pc.addTrack(t, stream));
 
+  // Prefer H.264 for the video track. Browsers (Chrome/Android) default to VP8,
+  // which MediaMTX's HLS muxer silently drops — leaving remote HLS viewers with
+  // an audio-only stream and a blank screen. Fall back to the browser default
+  // when no H.264 encoder is available.
+  if (typeof RTCRtpSender !== 'undefined' && stream.getVideoTracks()[0]) {
+    const h264 = (RTCRtpSender.getCapabilities?.('video')?.codecs ?? []).filter(
+      (c) => c.mimeType.toLowerCase() === 'video/h264'
+    );
+    const videoTransceiver = pc.getTransceivers().find((t) => t.sender.track?.kind === 'video');
+    if (videoTransceiver && h264.length > 0) videoTransceiver.setCodecPreferences(h264);
+  }
+
   const offer = await pc.createOffer();
   await pc.setLocalDescription(offer);
 

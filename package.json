@@ -4,6 +4,7 @@
   "workspaces": ["server", "client"],
   "scripts": {
     "dev": "bun run kill:ports && concurrently -n api,web,media -c cyan,magenta,yellow \"cd server && bun run dev\" \"cd client && bun run dev\" \"mediamtx mediamtx/mediamtx.local.yml\"",
+    "online": "bash scripts/online.sh",
     "kill:ports": "bash scripts/kill-ports.sh",
     "dev:api": "cd server && bun run dev",
     "dev:web": "cd client && bun run dev",
@@ -12,7 +13,7 @@
     "db:migrate": "cd server && bun run db:migrate",
     "db:deploy": "cd server && bun run db:deploy",
     "db:seed": "cd server && bun run seed",
-    "typecheck": "cd server && bun run typecheck && cd client && bun run typecheck"
+    "typecheck": "(cd server && bun run typecheck) && (cd client && bun run typecheck)"
   },
   "devDependencies": {
     "concurrently": "^9.1.0"
